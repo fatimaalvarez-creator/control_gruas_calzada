@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Control de Flota — Grúas</title>
+  <title>Control de Grúas La Calzada</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
@@ -222,13 +222,15 @@
         Registrar recarga
       </div>
       <div class="form-grid">
-        <div class="form-group"><label>Grúa *</label><select id="gas-grua"></select></div>
+        <div class="form-group"><label>Grúa *</label><select id="gas-grua" onchange="onGruaChange()"></select></div>
         <div class="form-group"><label>Fecha *</label><input id="gas-fecha" type="date" /></div>
         <div class="form-group"><label>Litros cargados *</label><input id="gas-litros" type="number" placeholder="Ej. 60" min="0" step="0.1" /></div>
         <div class="form-group"><label>Costo total ($)</label><input id="gas-costo" type="number" placeholder="Opcional" min="0" step="0.01" /></div>
-        <div class="form-group"><label>Odómetro al cargar (km)</label><input id="gas-odo" type="number" placeholder="Opcional" min="0" /></div>
+        <div class="form-group"><label>Odómetro actual — tablero (km)</label><input id="gas-odo" type="number" placeholder="Ej. 24,500" min="0" oninput="calcKmRecorridos()" /></div>
+        <div class="form-group"><label>Km recorridos desde última carga <span id="gas-km-auto" style="font-size:11px;color:var(--green);font-weight:600"></span></label><input id="gas-km-rec" type="number" placeholder="Se calcula automático o captura manual" min="0" step="1" /></div>
         <div class="form-group"><label>Estación / Ubicación</label><input id="gas-notas" type="text" placeholder="Ej. Pemex Av. Vallarta" /></div>
       </div>
+      <div id="gas-rend-preview" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:var(--radius);font-size:13px;color:var(--green);font-weight:500"></div>
       <button class="btn btn-accent" onclick="addRecarga()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Guardar recarga
@@ -245,8 +247,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fecha</th><th>Grúa</th><th>Litros</th><th>Km estimados</th><th>Costo</th><th>Precio/L</th><th>Odómetro</th><th>Estación</th><th></th></tr></thead>
-          <tbody id="gas-table"><tr><td colspan="9" class="empty">Sin recargas registradas.</td></tr></tbody>
+          <thead><tr><th>Fecha</th><th>Grúa</th><th>Litros</th><th>Km recorridos</th><th>Rendimiento</th><th>Km disponibles</th><th>Costo</th><th>Precio/L</th><th>Odómetro</th><th>Estación</th><th></th></tr></thead>
+          <tbody id="gas-table"><tr><td colspan="11" class="empty">Sin recargas registradas.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -364,11 +366,57 @@ function fmtN(n) { if (!n && n !== 0) return '—'; return Number(n).toLocaleStr
 function fmtM(n) { if (!n && n !== 0) return '—'; return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtD(s) { if (!s) return '—'; const [y,m,d] = s.split('-'); return d+'/'+m+'/'+y; }
 
-function kmDisp(gruaId) {
-  const g = db.gruas.find(x => x.id === gruaId);
-  if (!g || !g.rend) return null;
-  const totalL = db.recargas.filter(r => r.grua === gruaId).reduce((a, r) => a + (r.litros || 0), 0);
-  return Math.round(totalL * parseFloat(g.rend));
+// ── RENDIMIENTO AUTO ──
+function ultimaRecarga(gruaId) {
+  const recargas = db.recargas.filter(r => r.grua === gruaId && r.odo).sort((a,b) => b.odo - a.odo);
+  return recargas[0] || null;
+}
+
+function calcRendimientoGrua(gruaId) {
+  // Returns average km/L from all odometer-based segments
+  const recargas = db.recargas.filter(r => r.grua === gruaId && r.odo).sort((a,b) => a.odo - b.odo);
+  const segmentos = [];
+  for (let i = 1; i < recargas.length; i++) {
+    const kmDiff = recargas[i].odo - recargas[i-1].odo;
+    const litros = recargas[i-1].litros; // litros usados para recorrer esa distancia
+    if (kmDiff > 0 && litros > 0) segmentos.push(kmDiff / litros);
+  }
+  // Also include manual km-recorridos entries
+  db.recargas.filter(r => r.grua === gruaId && r.kmRec && r.litros).forEach(r => {
+    segmentos.push(r.kmRec / r.litros);
+  });
+  if (!segmentos.length) return null;
+  const avg = segmentos.reduce((a,b) => a+b, 0) / segmentos.length;
+  return Math.round(avg * 100) / 100;
+}
+
+function onGruaChange() { calcKmRecorridos(); }
+
+function calcKmRecorridos() {
+  const gruaId = document.getElementById('gas-grua').value;
+  const odoActual = parseFloat(document.getElementById('gas-odo').value);
+  const prev = document.getElementById('gas-km-auto');
+  const preview = document.getElementById('gas-rend-preview');
+  const kmRecInput = document.getElementById('gas-km-rec');
+  if (!gruaId || !odoActual) { prev.textContent = ''; preview.style.display = 'none'; return; }
+  const ultima = ultimaRecarga(gruaId);
+  if (ultima && ultima.odo && odoActual > ultima.odo) {
+    const diff = Math.round(odoActual - ultima.odo);
+    prev.textContent = '→ calculado: ' + diff.toLocaleString('es-MX') + ' km';
+    kmRecInput.placeholder = diff + ' km (calculado del odómetro)';
+    if (!kmRecInput.value) {
+      const litros = parseFloat(document.getElementById('gas-litros').value) || ultima.litros;
+      if (litros > 0) {
+        const rend = (diff / litros).toFixed(2);
+        preview.style.display = 'block';
+        preview.innerHTML = `⚡ Rendimiento estimado de este tramo: <strong>${rend} km/L</strong> (${diff.toLocaleString('es-MX')} km ÷ ${litros} L)`;
+      }
+    }
+  } else {
+    prev.textContent = '';
+    kmRecInput.placeholder = 'Captura manual si no hay odómetro previo';
+    preview.style.display = 'none';
+  }
 }
 
 // ── GRÚAS ──
@@ -389,22 +437,27 @@ function deleteGrua(id) {
 }
 function renderGruas() {
   const total = db.gruas.length;
-  const conRend = db.gruas.filter(g => g.rend).length;
   document.getElementById('gruas-stats').innerHTML = `
     <div class="stat accent"><div class="stat-label">Total grúas</div><div class="stat-value">${total}</div></div>
-    <div class="stat green"><div class="stat-label">Con rendimiento</div><div class="stat-value">${conRend}</div></div>
-    <div class="stat"><div class="stat-label">Sin rendimiento aún</div><div class="stat-value">${total - conRend}</div></div>`;
+    <div class="stat green"><div class="stat-label">Con rendimiento calculado</div><div class="stat-value">${db.gruas.filter(g => calcRendimientoGrua(g.id) !== null || g.rend).length}</div></div>
+    <div class="stat"><div class="stat-label">Sin datos aún</div><div class="stat-value">${db.gruas.filter(g => calcRendimientoGrua(g.id) === null && !g.rend).length}</div></div>`;
   const tbody = document.getElementById('gruas-table');
   if (!db.gruas.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Aún no hay grúas registradas.</td></tr>'; return; }
   tbody.innerHTML = db.gruas.map(g => {
-    const km = kmDisp(g.id);
-    const kmCell = km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : `<span class="badge badge-gray">Sin rendimiento</span>`;
+    const rendAuto = calcRendimientoGrua(g.id);
+    const rendFinal = rendAuto !== null ? rendAuto : (g.rend ? parseFloat(g.rend) : null);
+    const rendLabel = rendAuto !== null
+      ? `<span class="badge badge-green">⚡ ${rendAuto} km/L <span style="font-weight:400;opacity:0.7">(auto)</span></span>`
+      : g.rend ? `${g.rend} km/L <span style="font-size:11px;color:var(--text-3)">(manual)</span>` : '<span style="color:var(--text-3)">—</span>';
+    const totalL = db.recargas.filter(r => r.grua === g.id).reduce((a,r) => a + r.litros, 0);
+    const km = rendFinal ? Math.round(totalL * rendFinal) : null;
+    const kmCell = km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : `<span class="badge badge-gray">Sin datos</span>`;
     return `<tr>
       <td><span class="grua-chip">${g.id}</span></td>
       <td>${g.tipo}</td>
       <td class="mono">${g.placa || '—'}</td>
       <td>${g.modelo || '—'}</td>
-      <td>${g.rend ? g.rend + ' km/L' : '<span style="color:var(--text-3)">—</span>'}</td>
+      <td>${rendLabel}</td>
       <td>${g.tank ? g.tank + ' L' : '—'}</td>
       <td>${kmCell}</td>
       <td><div class="actions"><button class="btn btn-danger" title="Eliminar" onclick="deleteGrua('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div></td>
@@ -418,8 +471,18 @@ function addRecarga() {
   const litros = parseFloat(document.getElementById('gas-litros').value);
   if (!grua) return alert('Selecciona una grúa.');
   if (!litros || litros <= 0) return alert('Ingresa los litros cargados.');
-  db.recargas.push({ grua, fecha: document.getElementById('gas-fecha').value, litros, costo: parseFloat(document.getElementById('gas-costo').value) || 0, odo: document.getElementById('gas-odo').value || '', notas: document.getElementById('gas-notas').value.trim(), ts: Date.now() });
-  ['gas-litros','gas-costo','gas-odo','gas-notas'].forEach(i => document.getElementById(i).value = '');
+  const odo = parseFloat(document.getElementById('gas-odo').value) || null;
+  // km recorridos: manual input OR auto from odometer diff
+  let kmRec = parseFloat(document.getElementById('gas-km-rec').value) || null;
+  if (!kmRec && odo) {
+    const ultima = ultimaRecarga(grua);
+    if (ultima && ultima.odo && odo > ultima.odo) kmRec = Math.round(odo - ultima.odo);
+  }
+  db.recargas.push({ grua, fecha: document.getElementById('gas-fecha').value, litros, costo: parseFloat(document.getElementById('gas-costo').value) || 0, odo, kmRec, notas: document.getElementById('gas-notas').value.trim(), ts: Date.now() });
+  ['gas-litros','gas-costo','gas-odo','gas-km-rec','gas-notas'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('gas-km-auto').textContent = '';
+  document.getElementById('gas-rend-preview').style.display = 'none';
+  document.getElementById('gas-km-rec').placeholder = 'Se calcula automático o captura manual';
   saveDB(); renderAll();
 }
 function deleteRecarga(ts) { db.recargas = db.recargas.filter(r => r.ts !== ts); saveDB(); renderAll(); }
@@ -432,13 +495,11 @@ function renderGas() {
     <div class="stat green"><div class="stat-label">Litros cargados</div><div class="stat-value">${fmtN(Math.round(totalL))}</div><div class="stat-sub">litros en total</div></div>
     <div class="stat red"><div class="stat-label">Gasto combustible</div><div class="stat-value">${fmtM(totalC)}</div></div>`;
 
-  // selects
   const sg = document.getElementById('gas-grua');
   const prev = sg.value;
   sg.innerHTML = db.gruas.length ? db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('') : '<option value="">Sin grúas</option>';
   if (prev) sg.value = prev;
 
-  // filters
   const fg = document.getElementById('gas-filter-grua');
   const fgv = fg.value;
   fg.innerHTML = '<option value="">Todas las grúas</option>' + db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
@@ -455,16 +516,21 @@ function renderGas() {
   if (fmv) list = list.filter(r => r.fecha && r.fecha.startsWith(fmv));
 
   const tbody = document.getElementById('gas-table');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin recargas registradas.</td></tr>'; return; }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Sin recargas registradas.</td></tr>'; return; }
   tbody.innerHTML = list.map(r => {
     const g = db.gruas.find(x => x.id === r.grua);
-    const km = g && g.rend ? Math.round(r.litros * parseFloat(g.rend)) : null;
+    const rendAuto = calcRendimientoGrua(r.grua);
+    const rendFinal = rendAuto !== null ? rendAuto : (g && g.rend ? parseFloat(g.rend) : null);
+    const kmDisponibles = rendFinal ? Math.round(r.litros * rendFinal) : null;
+    const rendTramo = r.kmRec && r.litros ? (r.kmRec / r.litros).toFixed(2) : null;
     const pxl = r.costo && r.litros ? (r.costo / r.litros).toFixed(2) : null;
     return `<tr>
       <td class="mono">${fmtD(r.fecha)}</td>
       <td><span class="grua-chip">${r.grua}</span></td>
       <td class="mono">${r.litros} L</td>
-      <td>${km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : '<span class="badge badge-gray">Sin rendimiento</span>'}</td>
+      <td class="mono">${r.kmRec ? fmtN(r.kmRec) + ' km' : '—'}</td>
+      <td>${rendTramo ? `<span class="badge badge-green">${rendTramo} km/L</span>` : '—'}</td>
+      <td>${kmDisponibles !== null ? `<span class="badge badge-navy">${fmtN(kmDisponibles)} km</span>` : '<span class="badge badge-gray">Sin datos</span>'}</td>
       <td class="mono">${fmtM(r.costo)}</td>
       <td class="mono">${pxl ? '$' + pxl + '/L' : '—'}</td>
       <td class="mono">${r.odo ? fmtN(r.odo) + ' km' : '—'}</td>
@@ -542,12 +608,15 @@ function renderResumen() {
     const recargas = db.recargas.filter(r => r.grua === g.id);
     const mants = db.mantenimientos.filter(m => m.grua === g.id).sort((a,b) => b.ts - a.ts);
     const totalL = recargas.reduce((a,r) => a + r.litros, 0);
-    const km = g.rend ? Math.round(totalL * parseFloat(g.rend)) : null;
+    const rendAuto = calcRendimientoGrua(g.id);
+    const rendFinal = rendAuto !== null ? rendAuto : (g.rend ? parseFloat(g.rend) : null);
+    const km = rendFinal ? Math.round(totalL * rendFinal) : null;
     const ultimo = mants[0];
+    const rendDisplay = rendAuto !== null ? `${rendAuto} km/L ⚡` : (g.rend ? g.rend + ' km/L' : '—');
     html += `<tr>
       <td><span class="grua-chip">${g.id}</span></td>
       <td>${g.tipo}</td>
-      <td class="mono">${g.rend || '—'}</td>
+      <td class="mono">${rendDisplay}</td>
       <td class="mono">${fmtN(Math.round(totalL))} L</td>
       <td>${km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : '<span class="badge badge-gray">Sin rendimiento</span>'}</td>
       <td class="mono">${recargas.length}</td>
