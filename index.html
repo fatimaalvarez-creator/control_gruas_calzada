@@ -3,65 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Control de Grúas La Calzada - Grúas</title>
+  <title>Control de Grúas La Calzada</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --navy: #0a1628;
-      --navy-mid: #142240;
-      --navy-light: #1e3360;
+      --navy: #0a1628; --navy-mid: #142240; --navy-light: #1e3360;
       --accent: #f59e0b;
-      --accent-dim: #b45309;
-      --surface: #ffffff;
-      --surface-2: #f8fafc;
-      --surface-3: #f1f5f9;
-      --border: #e2e8f0;
-      --border-strong: #cbd5e1;
-      --text: #0f172a;
-      --text-2: #475569;
-      --text-3: #94a3b8;
-      --green: #16a34a;
-      --green-bg: #f0fdf4;
-      --red: #dc2626;
-      --red-bg: #fef2f2;
-      --amber: #d97706;
-      --amber-bg: #fffbeb;
-      --radius: 10px;
-      --radius-lg: 14px;
+      --surface: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
+      --border: #e2e8f0; --border-strong: #cbd5e1;
+      --text: #0f172a; --text-2: #475569; --text-3: #94a3b8;
+      --green: #16a34a; --green-bg: #f0fdf4;
+      --red: #dc2626; --red-bg: #fef2f2;
+      --amber: #d97706; --amber-bg: #fffbeb;
+      --radius: 10px; --radius-lg: 14px;
       --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', sans-serif; background: var(--surface-3); color: var(--text); min-height: 100vh; }
 
-    /* HEADER */
     .header { background: var(--navy); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
     .header-brand { display: flex; align-items: center; gap: 10px; }
     .header-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
     .header-icon svg { width: 18px; height: 18px; fill: var(--navy); }
-    .header-title { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: 0.01em; }
+    .header-title { font-size: 15px; font-weight: 600; color: #fff; }
     .header-sub { font-size: 12px; color: rgba(255,255,255,0.45); font-family: 'DM Mono', monospace; }
     .header-date { font-size: 12px; color: rgba(255,255,255,0.4); font-family: 'DM Mono', monospace; }
 
-    /* NAV */
     .nav { background: var(--navy-mid); padding: 0 2rem; display: flex; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); overflow-x: auto; }
     .nav-btn { padding: 14px 18px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.15s; }
     .nav-btn:hover { color: rgba(255,255,255,0.85); }
     .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
     .nav-btn svg { width: 16px; height: 16px; }
 
-    /* LAYOUT */
+    .subnav { display: flex; gap: 6px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .subnav-btn { padding: 7px 16px; font-size: 13px; font-weight: 500; border-radius: 99px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; transition: all 0.15s; }
+    .subnav-btn:hover { background: var(--surface-3); }
+    .subnav-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .subsection { display: none; }
+    .subsection.active { display: block; }
+
     .main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
     .section { display: none; }
     .section.active { display: block; }
 
-    /* CARDS */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: var(--shadow); }
     .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; }
-    .card-title svg { width: 16px; height: 16px; color: var(--text-2); }
 
-    /* STATS */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
     .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; box-shadow: var(--shadow); }
     .stat-label { font-size: 11px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
@@ -71,32 +59,23 @@
     .stat.green { border-left: 3px solid var(--green); }
     .stat.red { border-left: 3px solid var(--red); }
 
-    /* FORM */
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 5px; }
     .form-group.full { grid-column: 1 / -1; }
     label { font-size: 12px; font-weight: 500; color: var(--text-2); }
-    input, select, textarea {
-      width: 100%; padding: 9px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif;
-      border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2);
-      color: var(--text); transition: border-color 0.15s, box-shadow 0.15s; outline: none;
-    }
+    input, select, textarea { width: 100%; padding: 9px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-2); color: var(--text); transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
     input:focus, select:focus, textarea:focus { border-color: var(--navy-light); box-shadow: 0 0 0 3px rgba(30,51,96,0.08); background: #fff; }
     input::placeholder { color: var(--text-3); }
+    input[type="file"] { padding: 6px 10px; font-size: 13px; cursor: pointer; }
 
-    /* BUTTONS */
     .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; }
-    .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
-    .btn-primary:hover { background: var(--navy-light); }
     .btn-accent { background: var(--accent); color: var(--navy); border-color: var(--accent); font-weight: 600; }
     .btn-accent:hover { background: #fbbf24; }
     .btn-ghost { background: transparent; color: var(--text-2); border-color: var(--border-strong); }
     .btn-ghost:hover { background: var(--surface-3); }
     .btn-danger { background: transparent; color: var(--red); border-color: transparent; padding: 6px 10px; }
     .btn-danger:hover { background: var(--red-bg); }
-    .btn svg { width: 15px; height: 15px; }
 
-    /* TABLE */
     .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
     table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     thead { background: var(--surface-2); }
@@ -106,7 +85,6 @@
     tbody tr:hover td { background: var(--surface-2); }
     .mono { font-family: 'DM Mono', monospace; font-size: 13px; }
 
-    /* BADGES */
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
     .badge-green { background: var(--green-bg); color: var(--green); }
     .badge-amber { background: var(--amber-bg); color: var(--amber); }
@@ -114,17 +92,43 @@
     .badge-gray { background: var(--surface-3); color: var(--text-2); }
     .badge-navy { background: #e8eef7; color: var(--navy); }
 
-    /* MISC */
     .empty { text-align: center; padding: 3rem 1rem; color: var(--text-3); font-size: 14px; }
     .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
-    .filters select { width: auto; font-size: 13px; padding: 7px 10px; }
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .filters select, .filters input[type="date"] { width: auto; font-size: 13px; padding: 7px 10px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px; }
     .section-header h2 { font-size: 20px; font-weight: 600; color: var(--text); }
     .section-header p { font-size: 13px; color: var(--text-2); margin-top: 2px; }
     .grua-chip { display: inline-flex; align-items: center; gap: 5px; background: #e8eef7; color: var(--navy); padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
-    .truncate { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .truncate { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .actions { display: flex; gap: 4px; }
-    hr.divider { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+
+    /* FOTO GRUA */
+    .grua-foto { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+    .grua-foto-placeholder { width: 44px; height: 44px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+    /* IMG UPLOAD */
+    .img-preview-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .img-preview-wrap { position: relative; }
+    .img-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+    .img-remove { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: var(--red); color: #fff; border: none; border-radius: 99px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    /* PAPELERÍA */
+    .papel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+    .papel-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem; }
+    .papel-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .papel-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 30px; }
+    .papel-img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; }
+    .papel-empty { font-size: 12px; color: var(--text-3); padding: 4px 0; }
+    .upload-btn-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--navy); font-weight: 600; background: #e8eef7; padding: 6px 12px; border-radius: var(--radius); border: 1px solid #c5d3ea; }
+    .upload-btn-label:hover { background: #d4dff5; }
+
+    /* LIGHTBOX */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 20px; right: 24px; color: #fff; font-size: 36px; cursor: pointer; background: none; border: none; }
+
+    .costo-auto { font-size: 12px; color: var(--green); font-weight: 600; margin-top: 3px; height: 16px; }
 
     @media (max-width: 600px) {
       .main { padding: 1rem; }
@@ -136,6 +140,12 @@
 </head>
 <body>
 
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
+</div>
+
 <header class="header">
   <div class="header-brand">
     <div class="header-icon">
@@ -143,26 +153,26 @@
     </div>
     <div>
       <div class="header-title">Control de Grúas La Calzada</div>
-      <div class="header-sub">Sistema de Grúas</div>
+      <div class="header-sub">Sistema de Flota</div>
     </div>
   </div>
   <div class="header-date" id="header-date"></div>
 </header>
 
 <nav class="nav">
-  <button class="nav-btn active" onclick="showSection('gruas', this)">
+  <button class="nav-btn active" onclick="showSection('gruas',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
     Grúas
   </button>
-  <button class="nav-btn" onclick="showSection('gasolina', this)">
+  <button class="nav-btn" onclick="showSection('gasolina',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 22V8l9-6 9 6v14H3z"/><path d="M18 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><path d="M9 22V12h6v10"/></svg>
     Gasolina
   </button>
-  <button class="nav-btn" onclick="showSection('mantenimiento', this)">
+  <button class="nav-btn" onclick="showSection('mantenimiento',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.77 3.77z"/></svg>
     Mantenimiento
   </button>
-  <button class="nav-btn" onclick="showSection('resumen', this)">
+  <button class="nav-btn" onclick="showSection('resumen',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     Resumen
   </button>
@@ -170,138 +180,160 @@
 
 <main class="main">
 
-  <!-- ═══════════════ GRÚAS ═══════════════ -->
+  <!-- ══════ GRÚAS ══════ -->
   <div class="section active" id="sec-gruas">
     <div class="section-header">
-      <div><h2>Flota de Grúas</h2><p>Registra y administra cada unidad de tu flota</p></div>
+      <div><h2>Flota de Grúas</h2><p>Unidades, choferes y documentación</p></div>
     </div>
-    <div class="stats-grid" id="gruas-stats"></div>
-    <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Registrar nueva grúa
-      </div>
-      <div class="form-grid">
-        <div class="form-group"><label>ID / Nombre de la grúa *</label><input id="g-id" type="text" placeholder="Ej. GRU-01, Unidad 5" /></div>
-        <div class="form-group"><label>Tipo de grúa</label>
-          <select id="g-tipo"><option>Plataforma</option><option>Grúa de arrastre</option><option>Grúa de carga</option><option>Grúa articulada</option><option>Grúa hidráulica</option><option>Otro</option></select>
+    <div class="subnav">
+      <button class="subnav-btn active" onclick="showSub('gruas','lista',this)">🚛 Registro de Grúas</button>
+      <button class="subnav-btn" onclick="showSub('gruas','papeleria',this)">📄 Papelería</button>
+    </div>
+
+    <div class="subsection active" id="sub-gruas-lista">
+      <div class="stats-grid" id="gruas-stats"></div>
+      <div class="card">
+        <div class="card-title">➕ Registrar nueva grúa</div>
+        <div class="form-grid">
+          <div class="form-group"><label>ID / Nombre *</label><input id="g-id" type="text" placeholder="Ej. GRU-01" /></div>
+          <div class="form-group"><label>Tipo de grúa</label>
+            <select id="g-tipo"><option>Plataforma</option><option>Grúa de arrastre</option><option>Grúa de carga</option><option>Grúa articulada</option><option>Grúa hidráulica</option><option>Otro</option></select>
+          </div>
+          <div class="form-group"><label>Nombre del chofer</label><input id="g-chofer" type="text" placeholder="Ej. Juan Pérez" /></div>
+          <div class="form-group"><label>Rendimiento (km/L)</label><input id="g-rend" type="number" placeholder="Se calcula automático" min="0" step="0.1" /></div>
+          <div class="form-group"><label>Capacidad tanque (L)</label><input id="g-tank" type="number" placeholder="Ej. 80" min="0" /></div>
+          <div class="form-group"><label>Placa / Núm. económico</label><input id="g-placa" type="text" placeholder="Opcional" /></div>
+          <div class="form-group"><label>Marca / Modelo</label><input id="g-modelo" type="text" placeholder="Ej. Ford F-450" /></div>
+          <div class="form-group"><label>Foto de la grúa</label>
+            <input id="g-foto-input" type="file" accept="image/*" onchange="previewGruaFoto(this)" />
+          </div>
         </div>
-        <div class="form-group"><label>Rendimiento (km/L)</label><input id="g-rend" type="number" placeholder="Se asigna después" min="0" step="0.1" /></div>
-        <div class="form-group"><label>Capacidad tanque (L)</label><input id="g-tank" type="number" placeholder="Ej. 80" min="0" /></div>
-        <div class="form-group"><label>Placa / Número económico</label><input id="g-placa" type="text" placeholder="Opcional" /></div>
-        <div class="form-group"><label>Marca / Modelo</label><input id="g-modelo" type="text" placeholder="Ej. Ford F-450" /></div>
+        <div id="g-foto-preview" style="margin-bottom:14px;display:none;">
+          <img id="g-foto-img" src="" style="width:130px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);" />
+        </div>
+        <button class="btn btn-accent" onclick="addGrua()">✓ Guardar grúa</button>
       </div>
-      <button class="btn btn-accent" onclick="addGrua()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Guardar grúa
-      </button>
+      <div class="card">
+        <div class="card-title">Lista de flota</div>
+        <div class="filters">
+          <select id="gruas-filter-chofer" onchange="renderGruas()"><option value="">Todos los choferes</option></select>
+          <select id="gruas-filter-tipo" onchange="renderGruas()">
+            <option value="">Todos los tipos</option>
+            <option>Plataforma</option><option>Grúa de arrastre</option><option>Grúa de carga</option><option>Grúa articulada</option><option>Grúa hidráulica</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Foto</th><th>ID / Nombre</th><th>Tipo</th><th>Chofer</th><th>Placa</th><th>Modelo</th><th>Km/L</th><th>Tanque</th><th>Km disp.</th><th></th></tr></thead>
+            <tbody id="gruas-table"><tr><td colspan="10" class="empty">Sin grúas registradas.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Flota registrada
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID / Nombre</th><th>Tipo</th><th>Placa</th><th>Modelo</th><th>Km/L</th><th>Tanque</th><th>Km disponibles</th><th></th></tr></thead>
-          <tbody id="gruas-table"><tr><td colspan="8" class="empty">Aún no hay grúas registradas.</td></tr></tbody>
-        </table>
+
+    <div class="subsection" id="sub-gruas-papeleria">
+      <div class="card">
+        <div class="card-title">📄 Documentos por grúa</div>
+        <div class="filters">
+          <select id="papel-filter-grua" onchange="renderPapeleria()"><option value="">— Selecciona una grúa —</option></select>
+        </div>
+        <div id="papel-content"><p class="empty">Selecciona una grúa para ver sus documentos.</p></div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════ GASOLINA ═══════════════ -->
+  <!-- ══════ GASOLINA ══════ -->
   <div class="section" id="sec-gasolina">
     <div class="section-header">
-      <div><h2>Control de Gasolina</h2><p>Registra recargas y calcula kilómetros disponibles</p></div>
+      <div><h2>Control de Gasolina</h2><p>Recargas, costos y rendimiento automático</p></div>
     </div>
     <div class="stats-grid" id="gas-stats"></div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Registrar recarga
-      </div>
+      <div class="card-title">➕ Registrar recarga</div>
       <div class="form-grid">
         <div class="form-group"><label>Grúa *</label><select id="gas-grua" onchange="onGruaChange()"></select></div>
         <div class="form-group"><label>Fecha *</label><input id="gas-fecha" type="date" /></div>
-        <div class="form-group"><label>Litros cargados *</label><input id="gas-litros" type="number" placeholder="Ej. 60" min="0" step="0.1" /></div>
-        <div class="form-group"><label>Costo total ($)</label><input id="gas-costo" type="number" placeholder="Opcional" min="0" step="0.01" /></div>
-        <div class="form-group"><label>Odómetro actual — tablero (km)</label><input id="gas-odo" type="number" placeholder="Ej. 24,500" min="0" oninput="calcKmRecorridos()" /></div>
-        <div class="form-group"><label>Km recorridos desde última carga <span id="gas-km-auto" style="font-size:11px;color:var(--green);font-weight:600"></span></label><input id="gas-km-rec" type="number" placeholder="Se calcula automático o captura manual" min="0" step="1" /></div>
+        <div class="form-group">
+          <label>Litros cargados *</label>
+          <input id="gas-litros" type="number" placeholder="Ej. 60" min="0" step="0.1" oninput="calcCostoLitro()" />
+        </div>
+        <div class="form-group">
+          <label>Costo total ($)</label>
+          <input id="gas-costo" type="number" placeholder="Opcional" min="0" step="0.01" oninput="calcCostoLitro()" />
+          <div class="costo-auto" id="gas-pxl-auto"></div>
+        </div>
+        <div class="form-group">
+          <label>Precio por litro ($/L)</label>
+          <input id="gas-pxl" type="number" placeholder="Se calcula automático" min="0" step="0.01" oninput="calcCostoTotal()" />
+        </div>
+        <div class="form-group"><label>Odómetro — tablero (km)</label><input id="gas-odo" type="number" placeholder="Ej. 24,500" min="0" oninput="calcKmRecorridos()" /></div>
+        <div class="form-group">
+          <label>Km recorridos desde última carga <span id="gas-km-auto" style="font-size:11px;color:var(--green);font-weight:600"></span></label>
+          <input id="gas-km-rec" type="number" placeholder="Se calcula automático" min="0" step="1" />
+        </div>
         <div class="form-group"><label>Estación / Ubicación</label><input id="gas-notas" type="text" placeholder="Ej. Pemex Av. Vallarta" /></div>
       </div>
       <div id="gas-rend-preview" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:var(--radius);font-size:13px;color:var(--green);font-weight:500"></div>
-      <button class="btn btn-accent" onclick="addRecarga()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Guardar recarga
-      </button>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>📸 Fotos del ticket / comprobante</label>
+        <input type="file" id="gas-fotos-input" accept="image/*" multiple onchange="previewFotos('gas-fotos-input','gas-fotos-preview','gasFotosTemp')" />
+        <div class="img-preview-grid" id="gas-fotos-preview"></div>
+      </div>
+      <button class="btn btn-accent" onclick="addRecarga()">✓ Guardar recarga</button>
     </div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Historial de recargas
-      </div>
+      <div class="card-title">🕐 Historial de recargas</div>
       <div class="filters">
         <select id="gas-filter-grua" onchange="renderGas()"><option value="">Todas las grúas</option></select>
         <select id="gas-filter-mes" onchange="renderGas()"><option value="">Todos los meses</option></select>
+        <input type="date" id="gas-filter-dia" onchange="renderGas()" placeholder="Filtrar por día" />
+        <button class="btn btn-ghost" onclick="clearDayFilter()" style="padding:7px 10px;font-size:12px;">× Limpiar día</button>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fecha</th><th>Grúa</th><th>Litros</th><th>Km recorridos</th><th>Rendimiento</th><th>Km disponibles</th><th>Costo</th><th>Precio/L</th><th>Odómetro</th><th>Estación</th><th></th></tr></thead>
-          <tbody id="gas-table"><tr><td colspan="11" class="empty">Sin recargas registradas.</td></tr></tbody>
+          <thead><tr><th>Fecha</th><th>Grúa</th><th>Litros</th><th>Km recorridos</th><th>Rend. tramo</th><th>Km disponibles</th><th>Costo</th><th>Precio/L</th><th>Odómetro</th><th>Estación</th><th>Fotos</th><th></th></tr></thead>
+          <tbody id="gas-table"><tr><td colspan="12" class="empty">Sin recargas registradas.</td></tr></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════ MANTENIMIENTO ═══════════════ -->
+  <!-- ══════ MANTENIMIENTO ══════ -->
   <div class="section" id="sec-mantenimiento">
     <div class="section-header">
-      <div><h2>Mantenimiento</h2><p>Registra servicios y da seguimiento por unidad</p></div>
+      <div><h2>Mantenimiento</h2><p>Servicios, costos y seguimiento por unidad</p></div>
     </div>
     <div class="stats-grid" id="mant-stats"></div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Registrar servicio
-      </div>
+      <div class="card-title">➕ Registrar servicio</div>
       <div class="form-grid">
         <div class="form-group"><label>Grúa *</label><select id="mant-grua"></select></div>
         <div class="form-group"><label>Tipo de servicio *</label>
           <select id="mant-tipo">
-            <option>Cambio de aceite</option>
-            <option>Servicio eléctrico</option>
-            <option>Cambio de llantas</option>
-            <option>Cambio de filtro de aire</option>
-            <option>Cambio de filtro de combustible</option>
-            <option>Frenos</option>
-            <option>Suspensión</option>
-            <option>Transmisión</option>
-            <option>Radiador / Refrigeración</option>
-            <option>Revisión general</option>
-            <option>Afinación</option>
-            <option>Batería</option>
-            <option>Embrague</option>
-            <option>Otro</option>
+            <option>Cambio de aceite</option><option>Servicio eléctrico</option><option>Cambio de llantas</option>
+            <option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option>
+            <option>Frenos</option><option>Suspensión</option><option>Transmisión</option>
+            <option>Radiador / Refrigeración</option><option>Revisión general</option>
+            <option>Afinación</option><option>Batería</option><option>Laminería y Pintura</option>
+            <option>Sistema Hidráulico</option><option>Tapicería</option><option>Embrague</option><option>Otro</option>
           </select>
         </div>
-        <div class="form-group"><label>Fecha del servicio *</label><input id="mant-fecha" type="date" /></div>
+        <div class="form-group"><label>Fecha *</label><input id="mant-fecha" type="date" /></div>
         <div class="form-group"><label>Costo ($)</label><input id="mant-costo" type="number" placeholder="Opcional" min="0" step="0.01" /></div>
         <div class="form-group"><label>Km al momento del servicio</label><input id="mant-km" type="number" placeholder="Opcional" min="0" /></div>
-        <div class="form-group"><label>Próximo servicio (km o fecha)</label><input id="mant-prox" type="text" placeholder="Ej. 25,000 km ó 01/03/2026" /></div>
+        <div class="form-group"><label>Próximo servicio</label><input id="mant-prox" type="text" placeholder="Ej. 25,000 km ó 01/03/2026" /></div>
         <div class="form-group"><label>Taller / Técnico</label><input id="mant-taller" type="text" placeholder="Opcional" /></div>
-        <div class="form-group full"><label>Observaciones</label><input id="mant-obs" type="text" placeholder="Detalles del servicio, refacciones usadas..." /></div>
+        <div class="form-group full"><label>Observaciones</label><input id="mant-obs" type="text" placeholder="Detalles, refacciones usadas..." /></div>
       </div>
-      <button class="btn btn-accent" onclick="addMant()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Guardar servicio
-      </button>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>📸 Fotos del servicio (facturas, evidencia...)</label>
+        <input type="file" id="mant-fotos-input" accept="image/*" multiple onchange="previewFotos('mant-fotos-input','mant-fotos-preview','mantFotosTemp')" />
+        <div class="img-preview-grid" id="mant-fotos-preview"></div>
+      </div>
+      <button class="btn btn-accent" onclick="addMant()">✓ Guardar servicio</button>
     </div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Historial de mantenimiento
-      </div>
+      <div class="card-title">📋 Historial de mantenimiento</div>
       <div class="filters">
         <select id="mant-filter-grua" onchange="renderMant()"><option value="">Todas las grúas</option></select>
         <select id="mant-filter-tipo" onchange="renderMant()">
@@ -310,26 +342,24 @@
           <option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option>
           <option>Frenos</option><option>Suspensión</option><option>Transmisión</option>
           <option>Radiador / Refrigeración</option><option>Revisión general</option>
-          <option>Afinación</option><option>Batería</option><option>Embrague</option><option>Otro</option>
+          <option>Afinación</option><option>Batería</option><option>Laminería y Pintura</option>
+          <option>Sistema Hidráulico</option><option>Tapicería</option><option>Embrague</option><option>Otro</option>
         </select>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Fecha</th><th>Grúa</th><th>Servicio</th><th>Km</th><th>Costo</th><th>Próximo</th><th>Taller</th><th>Observaciones</th><th></th></tr></thead>
-          <tbody id="mant-table"><tr><td colspan="9" class="empty">Sin servicios registrados.</td></tr></tbody>
+          <thead><tr><th>Fecha</th><th>Grúa</th><th>Servicio</th><th>Km</th><th>Costo</th><th>Próximo</th><th>Taller</th><th>Observaciones</th><th>Fotos</th><th></th></tr></thead>
+          <tbody id="mant-table"><tr><td colspan="10" class="empty">Sin servicios registrados.</td></tr></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════ RESUMEN ═══════════════ -->
+  <!-- ══════ RESUMEN ══════ -->
   <div class="section" id="sec-resumen">
     <div class="section-header">
-      <div><h2>Resumen general</h2><p>Vista rápida del estado de toda la flota</p></div>
-      <button class="btn btn-ghost" onclick="renderResumen()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        Actualizar
-      </button>
+      <div><h2>Resumen general</h2><p>Estado de toda la flota</p></div>
+      <button class="btn btn-ghost" onclick="renderResumen()">↻ Actualizar</button>
     </div>
     <div id="resumen-content"></div>
   </div>
@@ -337,308 +367,411 @@
 </main>
 
 <script>
-const KEY = 'gruas_flota_v2';
-let db = { gruas: [], recargas: [], mantenimientos: [] };
+const KEY = 'gruas_calzada_v3';
+let db = { gruas:[], recargas:[], mantenimientos:[], papeleria:{} };
+let gasFotosTemp = [];
+let mantFotosTemp = [];
 
 function loadDB() {
-  try { const s = localStorage.getItem(KEY); if (s) db = JSON.parse(s); } catch(e) {}
+  try { const s = localStorage.getItem(KEY); if (s) db = JSON.parse(s); if (!db.papeleria) db.papeleria={}; } catch(e) {}
 }
 function saveDB() {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch(e) {}
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch(e) { alert('Advertencia: almacenamiento lleno. Las imágenes ocupan mucho espacio. Considera reducir el tamaño de las fotos.'); }
 }
 
-// DATE
-const now = new Date();
-document.getElementById('header-date').textContent = now.toLocaleDateString('es-MX', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 
 function showSection(s, btn) {
-  document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('sec-' + s).classList.add('active');
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('sec-'+s).classList.add('active');
   if (btn) btn.classList.add('active');
   renderAll();
 }
+function showSub(section, sub, btn) {
+  document.querySelectorAll(`#sec-${section} .subsection`).forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll(`#sec-${section} .subnav-btn`).forEach(el=>el.classList.remove('active'));
+  document.getElementById(`sub-${section}-${sub}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (sub==='papeleria') renderPapeleria();
+}
 
-// FORMAT
-function fmtN(n) { if (!n && n !== 0) return '—'; return Number(n).toLocaleString('es-MX'); }
-function fmtM(n) { if (!n && n !== 0) return '—'; return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function fmtD(s) { if (!s) return '—'; const [y,m,d] = s.split('-'); return d+'/'+m+'/'+y; }
+function openLightbox(src) { document.getElementById('lightbox-img').src=src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 
-// ── RENDIMIENTO AUTO ──
+function fmtN(n) { if (!n&&n!==0) return '—'; return Number(n).toLocaleString('es-MX'); }
+function fmtM(n) { if (!n&&n!==0) return '—'; return '$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtD(s) { if (!s) return '—'; const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; }
+
+function fileToBase64(file) {
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
+}
+
+async function previewFotos(inputId, previewId, tempVar) {
+  const files = document.getElementById(inputId).files;
+  const container = document.getElementById(previewId);
+  for (const file of files) {
+    const b64 = await fileToBase64(file);
+    window[tempVar].push(b64);
+    const idx = window[tempVar].length-1;
+    const wrap = document.createElement('div');
+    wrap.className = 'img-preview-wrap';
+    const img = document.createElement('img');
+    img.src = b64; img.className = 'img-preview';
+    img.onclick = () => openLightbox(b64);
+    const btn = document.createElement('button');
+    btn.className = 'img-remove'; btn.textContent = '×';
+    btn.onclick = () => { window[tempVar][idx]=null; wrap.remove(); };
+    wrap.appendChild(img); wrap.appendChild(btn);
+    container.appendChild(wrap);
+  }
+  document.getElementById(inputId).value='';
+}
+
+function previewGruaFoto(input) {
+  if (!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => { document.getElementById('g-foto-img').src=e.target.result; document.getElementById('g-foto-preview').style.display='block'; };
+  r.readAsDataURL(input.files[0]);
+}
+
+function renderFotosThumb(fotos) {
+  if (!fotos||!fotos.length) return '—';
+  const f = fotos.filter(Boolean);
+  if (!f.length) return '—';
+  return f.slice(0,3).map(src=>`<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer;margin-right:2px;" onclick="openLightbox('${src}')" />`).join('')
+    + (f.length>3?`<span style="font-size:11px;color:var(--text-3)">+${f.length-3}</span>`:'');
+}
+
+// COSTO AUTO
+function calcCostoLitro() {
+  const l=parseFloat(document.getElementById('gas-litros').value);
+  const c=parseFloat(document.getElementById('gas-costo').value);
+  const el=document.getElementById('gas-pxl-auto');
+  const pxlIn=document.getElementById('gas-pxl');
+  if (l>0&&c>0) { const p=(c/l).toFixed(2); el.textContent='→ $'+p+' por litro'; pxlIn.value=p; }
+  else el.textContent='';
+}
+function calcCostoTotal() {
+  const l=parseFloat(document.getElementById('gas-litros').value);
+  const p=parseFloat(document.getElementById('gas-pxl').value);
+  if (l>0&&p>0) { document.getElementById('gas-costo').value=(l*p).toFixed(2); document.getElementById('gas-pxl-auto').textContent='→ Total: $'+(l*p).toFixed(2); }
+}
+
+// RENDIMIENTO
 function ultimaRecarga(gruaId) {
-  const recargas = db.recargas.filter(r => r.grua === gruaId && r.odo).sort((a,b) => b.odo - a.odo);
-  return recargas[0] || null;
+  return db.recargas.filter(r=>r.grua===gruaId&&r.odo).sort((a,b)=>b.odo-a.odo)[0]||null;
 }
-
 function calcRendimientoGrua(gruaId) {
-  // Returns average km/L from all odometer-based segments
-  const recargas = db.recargas.filter(r => r.grua === gruaId && r.odo).sort((a,b) => a.odo - b.odo);
-  const segmentos = [];
-  for (let i = 1; i < recargas.length; i++) {
-    const kmDiff = recargas[i].odo - recargas[i-1].odo;
-    const litros = recargas[i-1].litros; // litros usados para recorrer esa distancia
-    if (kmDiff > 0 && litros > 0) segmentos.push(kmDiff / litros);
-  }
-  // Also include manual km-recorridos entries
-  db.recargas.filter(r => r.grua === gruaId && r.kmRec && r.litros).forEach(r => {
-    segmentos.push(r.kmRec / r.litros);
-  });
-  if (!segmentos.length) return null;
-  const avg = segmentos.reduce((a,b) => a+b, 0) / segmentos.length;
-  return Math.round(avg * 100) / 100;
+  const recs = db.recargas.filter(r=>r.grua===gruaId&&r.odo).sort((a,b)=>a.odo-b.odo);
+  const segs=[];
+  for (let i=1;i<recs.length;i++) { const km=recs[i].odo-recs[i-1].odo; const l=recs[i-1].litros; if(km>0&&l>0) segs.push(km/l); }
+  db.recargas.filter(r=>r.grua===gruaId&&r.kmRec&&r.litros).forEach(r=>segs.push(r.kmRec/r.litros));
+  if (!segs.length) return null;
+  return Math.round((segs.reduce((a,b)=>a+b,0)/segs.length)*100)/100;
 }
-
 function onGruaChange() { calcKmRecorridos(); }
-
 function calcKmRecorridos() {
-  const gruaId = document.getElementById('gas-grua').value;
-  const odoActual = parseFloat(document.getElementById('gas-odo').value);
-  const prev = document.getElementById('gas-km-auto');
-  const preview = document.getElementById('gas-rend-preview');
-  const kmRecInput = document.getElementById('gas-km-rec');
-  if (!gruaId || !odoActual) { prev.textContent = ''; preview.style.display = 'none'; return; }
-  const ultima = ultimaRecarga(gruaId);
-  if (ultima && ultima.odo && odoActual > ultima.odo) {
-    const diff = Math.round(odoActual - ultima.odo);
-    prev.textContent = '→ calculado: ' + diff.toLocaleString('es-MX') + ' km';
-    kmRecInput.placeholder = diff + ' km (calculado del odómetro)';
-    if (!kmRecInput.value) {
-      const litros = parseFloat(document.getElementById('gas-litros').value) || ultima.litros;
-      if (litros > 0) {
-        const rend = (diff / litros).toFixed(2);
-        preview.style.display = 'block';
-        preview.innerHTML = `⚡ Rendimiento estimado de este tramo: <strong>${rend} km/L</strong> (${diff.toLocaleString('es-MX')} km ÷ ${litros} L)`;
-      }
-    }
-  } else {
-    prev.textContent = '';
-    kmRecInput.placeholder = 'Captura manual si no hay odómetro previo';
-    preview.style.display = 'none';
-  }
+  const gruaId=document.getElementById('gas-grua').value;
+  const odo=parseFloat(document.getElementById('gas-odo').value);
+  const prevEl=document.getElementById('gas-km-auto');
+  const preview=document.getElementById('gas-rend-preview');
+  const kmRec=document.getElementById('gas-km-rec');
+  if (!gruaId||!odo) { prevEl.textContent=''; preview.style.display='none'; return; }
+  const u=ultimaRecarga(gruaId);
+  if (u&&u.odo&&odo>u.odo) {
+    const diff=Math.round(odo-u.odo);
+    prevEl.textContent='→ '+diff.toLocaleString('es-MX')+' km';
+    kmRec.placeholder=diff+' km (del odómetro)';
+    const l=parseFloat(document.getElementById('gas-litros').value)||u.litros;
+    if (l>0) { preview.style.display='block'; preview.innerHTML=`⚡ Rendimiento estimado: <strong>${(diff/l).toFixed(2)} km/L</strong> (${diff.toLocaleString('es-MX')} km ÷ ${l} L)`; }
+  } else { prevEl.textContent=''; kmRec.placeholder='Captura manual'; preview.style.display='none'; }
 }
+function clearDayFilter() { document.getElementById('gas-filter-dia').value=''; renderGas(); }
 
-// ── GRÚAS ──
+// ══ GRÚAS ══
 function addGrua() {
-  const id = document.getElementById('g-id').value.trim();
-  if (!id) return alert('El ID / nombre de la grúa es requerido.');
-  if (db.gruas.find(g => g.id === id)) return alert('Ya existe una grúa con ese ID.');
-  db.gruas.push({ id, tipo: document.getElementById('g-tipo').value, rend: document.getElementById('g-rend').value || '', tank: document.getElementById('g-tank').value || '', placa: document.getElementById('g-placa').value.trim(), modelo: document.getElementById('g-modelo').value.trim() });
-  ['g-id','g-rend','g-tank','g-placa','g-modelo'].forEach(i => document.getElementById(i).value = '');
+  const id=document.getElementById('g-id').value.trim();
+  if (!id) return alert('El ID es requerido.');
+  if (db.gruas.find(g=>g.id===id)) return alert('Ya existe una grúa con ese ID.');
+  const fotoEl=document.getElementById('g-foto-img');
+  const foto=fotoEl.src&&fotoEl.src!==window.location.href?fotoEl.src:null;
+  db.gruas.push({id, tipo:document.getElementById('g-tipo').value, chofer:document.getElementById('g-chofer').value.trim(), rend:document.getElementById('g-rend').value||'', tank:document.getElementById('g-tank').value||'', placa:document.getElementById('g-placa').value.trim(), modelo:document.getElementById('g-modelo').value.trim(), foto});
+  if (!db.papeleria[id]) db.papeleria[id]={poliza:[],tarjeta:[],verificacion:[],factura:[]};
+  ['g-id','g-rend','g-tank','g-placa','g-modelo','g-chofer'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('g-foto-preview').style.display='none';
+  document.getElementById('g-foto-input').value='';
   saveDB(); renderAll();
 }
 function deleteGrua(id) {
-  if (!confirm('¿Eliminar grúa ' + id + '? Se eliminarán también sus recargas y servicios.')) return;
-  db.gruas = db.gruas.filter(g => g.id !== id);
-  db.recargas = db.recargas.filter(r => r.grua !== id);
-  db.mantenimientos = db.mantenimientos.filter(m => m.grua !== id);
+  if (!confirm(`¿Eliminar grúa ${id}? Se borrarán sus recargas y servicios.`)) return;
+  db.gruas=db.gruas.filter(g=>g.id!==id);
+  db.recargas=db.recargas.filter(r=>r.grua!==id);
+  db.mantenimientos=db.mantenimientos.filter(m=>m.grua!==id);
+  delete db.papeleria[id];
   saveDB(); renderAll();
 }
 function renderGruas() {
-  const total = db.gruas.length;
-  document.getElementById('gruas-stats').innerHTML = `
-    <div class="stat accent"><div class="stat-label">Total grúas</div><div class="stat-value">${total}</div></div>
-    <div class="stat green"><div class="stat-label">Con rendimiento calculado</div><div class="stat-value">${db.gruas.filter(g => calcRendimientoGrua(g.id) !== null || g.rend).length}</div></div>
-    <div class="stat"><div class="stat-label">Sin datos aún</div><div class="stat-value">${db.gruas.filter(g => calcRendimientoGrua(g.id) === null && !g.rend).length}</div></div>`;
-  const tbody = document.getElementById('gruas-table');
-  if (!db.gruas.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Aún no hay grúas registradas.</td></tr>'; return; }
-  tbody.innerHTML = db.gruas.map(g => {
-    const rendAuto = calcRendimientoGrua(g.id);
-    const rendFinal = rendAuto !== null ? rendAuto : (g.rend ? parseFloat(g.rend) : null);
-    const rendLabel = rendAuto !== null
-      ? `<span class="badge badge-green">⚡ ${rendAuto} km/L <span style="font-weight:400;opacity:0.7">(auto)</span></span>`
-      : g.rend ? `${g.rend} km/L <span style="font-size:11px;color:var(--text-3)">(manual)</span>` : '<span style="color:var(--text-3)">—</span>';
-    const totalL = db.recargas.filter(r => r.grua === g.id).reduce((a,r) => a + r.litros, 0);
-    const km = rendFinal ? Math.round(totalL * rendFinal) : null;
-    const kmCell = km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : `<span class="badge badge-gray">Sin datos</span>`;
+  document.getElementById('gruas-stats').innerHTML=`
+    <div class="stat accent"><div class="stat-label">Total grúas</div><div class="stat-value">${db.gruas.length}</div></div>
+    <div class="stat green"><div class="stat-label">Con rendimiento</div><div class="stat-value">${db.gruas.filter(g=>calcRendimientoGrua(g.id)||g.rend).length}</div></div>
+    <div class="stat"><div class="stat-label">Sin datos aún</div><div class="stat-value">${db.gruas.filter(g=>!calcRendimientoGrua(g.id)&&!g.rend).length}</div></div>`;
+
+  const fc=document.getElementById('gruas-filter-chofer');
+  const fcv=fc.value;
+  const choferes=[...new Set(db.gruas.map(g=>g.chofer).filter(Boolean))];
+  fc.innerHTML='<option value="">Todos los choferes</option>'+choferes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  fc.value=fcv;
+
+  const ftv=document.getElementById('gruas-filter-tipo').value;
+  let list=[...db.gruas];
+  if (fcv) list=list.filter(g=>g.chofer===fcv);
+  if (ftv) list=list.filter(g=>g.tipo===ftv);
+
+  const tbody=document.getElementById('gruas-table');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="10" class="empty">Sin grúas.</td></tr>'; return; }
+  tbody.innerHTML=list.map(g=>{
+    const rendAuto=calcRendimientoGrua(g.id);
+    const rendFinal=rendAuto!==null?rendAuto:(g.rend?parseFloat(g.rend):null);
+    const rendLabel=rendAuto!==null?`<span class="badge badge-green">⚡${rendAuto} km/L</span>`:g.rend?`${g.rend} km/L`:'<span style="color:var(--text-3)">—</span>';
+    const totalL=db.recargas.filter(r=>r.grua===g.id).reduce((a,r)=>a+r.litros,0);
+    const km=rendFinal?Math.round(totalL*rendFinal):null;
+    const fotoCell=g.foto?`<img src="${g.foto}" class="grua-foto" onclick="openLightbox('${g.foto}')" />`:`<div class="grua-foto-placeholder">🚛</div>`;
     return `<tr>
+      <td>${fotoCell}</td>
       <td><span class="grua-chip">${g.id}</span></td>
       <td>${g.tipo}</td>
-      <td class="mono">${g.placa || '—'}</td>
-      <td>${g.modelo || '—'}</td>
+      <td>${g.chofer||'<span style="color:var(--text-3)">—</span>'}</td>
+      <td class="mono">${g.placa||'—'}</td>
+      <td>${g.modelo||'—'}</td>
       <td>${rendLabel}</td>
-      <td>${g.tank ? g.tank + ' L' : '—'}</td>
-      <td>${kmCell}</td>
-      <td><div class="actions"><button class="btn btn-danger" title="Eliminar" onclick="deleteGrua('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div></td>
+      <td>${g.tank?g.tank+' L':'—'}</td>
+      <td>${km!==null?`<span class="badge badge-green">${fmtN(km)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td>
+      <td><button class="btn btn-danger" onclick="deleteGrua('${g.id}')">🗑</button></td>
     </tr>`;
   }).join('');
+
+  // update papeleria select
+  const pg=document.getElementById('papel-filter-grua');
+  const pgv=pg.value;
+  pg.innerHTML='<option value="">— Selecciona una grúa —</option>'+db.gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' — '+g.chofer:''}</option>`).join('');
+  if (pgv) pg.value=pgv;
 }
 
-// ── GASOLINA ──
+// ══ PAPELERÍA ══
+const PAPEL_TIPOS=[
+  {key:'poliza',label:'Póliza de Seguro',icon:'🛡️'},
+  {key:'tarjeta',label:'Tarjeta de Circulación',icon:'📋'},
+  {key:'verificacion',label:'Verificación',icon:'✅'},
+  {key:'factura',label:'Factura de la Grúa',icon:'🧾'},
+];
+async function uploadPapel(gruaId, tipo, input) {
+  if (!db.papeleria[gruaId]) db.papeleria[gruaId]={poliza:[],tarjeta:[],verificacion:[],factura:[]};
+  for (const file of input.files) { const b64=await fileToBase64(file); db.papeleria[gruaId][tipo].push(b64); }
+  input.value=''; saveDB(); renderPapeleria();
+}
+function deletePapelFoto(gruaId, tipo, idx) { db.papeleria[gruaId][tipo].splice(idx,1); saveDB(); renderPapeleria(); }
+function renderPapeleria() {
+  const gruaId=document.getElementById('papel-filter-grua').value;
+  const el=document.getElementById('papel-content');
+  if (!gruaId) { el.innerHTML='<p class="empty">Selecciona una grúa para ver sus documentos.</p>'; return; }
+  if (!db.papeleria[gruaId]) db.papeleria[gruaId]={poliza:[],tarjeta:[],verificacion:[],factura:[]};
+  const p=db.papeleria[gruaId];
+  const g=db.gruas.find(x=>x.id===gruaId);
+  el.innerHTML=`
+    ${g&&g.foto?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+      <img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="openLightbox('${g.foto}')" />
+      <div><div style="font-weight:600;font-size:15px;">${g.id}</div><div style="font-size:13px;color:var(--text-2);">${g.chofer||'Sin chofer asignado'} · ${g.tipo}</div></div>
+    </div>`:''}
+    <div class="papel-grid">`+PAPEL_TIPOS.map(t=>{
+    const fotos=p[t.key]||[];
+    return `<div class="papel-card">
+      <div class="papel-card-title">
+        <span>${t.icon} ${t.label}</span>
+        <span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span>
+      </div>
+      <div class="papel-imgs">
+        ${fotos.length?fotos.map((f,i)=>`<div style="position:relative;">
+          <img src="${f}" class="papel-img" onclick="openLightbox('${f}')" />
+          <button class="img-remove" onclick="deletePapelFoto('${gruaId}','${t.key}',${i})">×</button>
+        </div>`).join(''):'<p class="papel-empty">Sin fotos aún</p>'}
+      </div>
+      <label class="upload-btn-label">
+        📎 Agregar foto
+        <input type="file" accept="image/*" multiple style="display:none" onchange="uploadPapel('${gruaId}','${t.key}',this)" />
+      </label>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ══ GASOLINA ══
 function addRecarga() {
-  const grua = document.getElementById('gas-grua').value;
-  const litros = parseFloat(document.getElementById('gas-litros').value);
+  const grua=document.getElementById('gas-grua').value;
+  const litros=parseFloat(document.getElementById('gas-litros').value);
   if (!grua) return alert('Selecciona una grúa.');
-  if (!litros || litros <= 0) return alert('Ingresa los litros cargados.');
-  const odo = parseFloat(document.getElementById('gas-odo').value) || null;
-  // km recorridos: manual input OR auto from odometer diff
-  let kmRec = parseFloat(document.getElementById('gas-km-rec').value) || null;
-  if (!kmRec && odo) {
-    const ultima = ultimaRecarga(grua);
-    if (ultima && ultima.odo && odo > ultima.odo) kmRec = Math.round(odo - ultima.odo);
-  }
-  db.recargas.push({ grua, fecha: document.getElementById('gas-fecha').value, litros, costo: parseFloat(document.getElementById('gas-costo').value) || 0, odo, kmRec, notas: document.getElementById('gas-notas').value.trim(), ts: Date.now() });
-  ['gas-litros','gas-costo','gas-odo','gas-km-rec','gas-notas'].forEach(i => document.getElementById(i).value = '');
-  document.getElementById('gas-km-auto').textContent = '';
-  document.getElementById('gas-rend-preview').style.display = 'none';
-  document.getElementById('gas-km-rec').placeholder = 'Se calcula automático o captura manual';
+  if (!litros||litros<=0) return alert('Ingresa los litros cargados.');
+  const odo=parseFloat(document.getElementById('gas-odo').value)||null;
+  let kmRec=parseFloat(document.getElementById('gas-km-rec').value)||null;
+  if (!kmRec&&odo) { const u=ultimaRecarga(grua); if(u&&u.odo&&odo>u.odo) kmRec=Math.round(odo-u.odo); }
+  const fotos=gasFotosTemp.filter(Boolean);
+  db.recargas.push({grua, fecha:document.getElementById('gas-fecha').value, litros, costo:parseFloat(document.getElementById('gas-costo').value)||0, pxl:parseFloat(document.getElementById('gas-pxl').value)||0, odo, kmRec, notas:document.getElementById('gas-notas').value.trim(), fotos, ts:Date.now()});
+  ['gas-litros','gas-costo','gas-pxl','gas-odo','gas-km-rec','gas-notas'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('gas-km-auto').textContent='';
+  document.getElementById('gas-rend-preview').style.display='none';
+  document.getElementById('gas-pxl-auto').textContent='';
+  document.getElementById('gas-fotos-preview').innerHTML='';
+  gasFotosTemp=[];
   saveDB(); renderAll();
 }
-function deleteRecarga(ts) { db.recargas = db.recargas.filter(r => r.ts !== ts); saveDB(); renderAll(); }
-
+function deleteRecarga(ts) { db.recargas=db.recargas.filter(r=>r.ts!==ts); saveDB(); renderAll(); }
 function renderGas() {
-  const totalL = db.recargas.reduce((a, r) => a + (r.litros || 0), 0);
-  const totalC = db.recargas.reduce((a, r) => a + (r.costo || 0), 0);
-  document.getElementById('gas-stats').innerHTML = `
+  const totalL=db.recargas.reduce((a,r)=>a+(r.litros||0),0);
+  const totalC=db.recargas.reduce((a,r)=>a+(r.costo||0),0);
+  document.getElementById('gas-stats').innerHTML=`
     <div class="stat accent"><div class="stat-label">Total recargas</div><div class="stat-value">${db.recargas.length}</div></div>
     <div class="stat green"><div class="stat-label">Litros cargados</div><div class="stat-value">${fmtN(Math.round(totalL))}</div><div class="stat-sub">litros en total</div></div>
     <div class="stat red"><div class="stat-label">Gasto combustible</div><div class="stat-value">${fmtM(totalC)}</div></div>`;
 
-  const sg = document.getElementById('gas-grua');
-  const prev = sg.value;
-  sg.innerHTML = db.gruas.length ? db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('') : '<option value="">Sin grúas</option>';
-  if (prev) sg.value = prev;
+  const sg=document.getElementById('gas-grua'); const sprev=sg.value;
+  sg.innerHTML=db.gruas.length?db.gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' — '+g.chofer:''}</option>`).join(''):'<option value="">Sin grúas</option>';
+  if (sprev) sg.value=sprev;
 
-  const fg = document.getElementById('gas-filter-grua');
-  const fgv = fg.value;
-  fg.innerHTML = '<option value="">Todas las grúas</option>' + db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
-  fg.value = fgv;
+  const fg=document.getElementById('gas-filter-grua'); const fgv=fg.value;
+  fg.innerHTML='<option value="">Todas las grúas</option>'+db.gruas.map(g=>`<option value="${g.id}">${g.id}</option>`).join('');
+  fg.value=fgv;
 
-  const meses = [...new Set(db.recargas.map(r => r.fecha ? r.fecha.substring(0,7) : ''))].filter(Boolean).sort().reverse();
-  const fm = document.getElementById('gas-filter-mes');
-  const fmv = fm.value;
-  fm.innerHTML = '<option value="">Todos los meses</option>' + meses.map(m => `<option value="${m}">${m}</option>`).join('');
-  fm.value = fmv;
+  const meses=[...new Set(db.recargas.map(r=>r.fecha?r.fecha.substring(0,7):'')).values()].filter(Boolean).sort().reverse();
+  const fm=document.getElementById('gas-filter-mes'); const fmv=fm.value;
+  fm.innerHTML='<option value="">Todos los meses</option>'+meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+  fm.value=fmv;
 
-  let list = [...db.recargas].sort((a,b) => b.ts - a.ts);
-  if (fgv) list = list.filter(r => r.grua === fgv);
-  if (fmv) list = list.filter(r => r.fecha && r.fecha.startsWith(fmv));
+  const fdv=document.getElementById('gas-filter-dia').value;
+  let list=[...db.recargas].sort((a,b)=>b.ts-a.ts);
+  if (fgv) list=list.filter(r=>r.grua===fgv);
+  if (fmv) list=list.filter(r=>r.fecha&&r.fecha.startsWith(fmv));
+  if (fdv) list=list.filter(r=>r.fecha===fdv);
 
-  const tbody = document.getElementById('gas-table');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Sin recargas registradas.</td></tr>'; return; }
-  tbody.innerHTML = list.map(r => {
-    const g = db.gruas.find(x => x.id === r.grua);
-    const rendAuto = calcRendimientoGrua(r.grua);
-    const rendFinal = rendAuto !== null ? rendAuto : (g && g.rend ? parseFloat(g.rend) : null);
-    const kmDisponibles = rendFinal ? Math.round(r.litros * rendFinal) : null;
-    const rendTramo = r.kmRec && r.litros ? (r.kmRec / r.litros).toFixed(2) : null;
-    const pxl = r.costo && r.litros ? (r.costo / r.litros).toFixed(2) : null;
+  const tbody=document.getElementById('gas-table');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="12" class="empty">Sin recargas.</td></tr>'; return; }
+  tbody.innerHTML=list.map(r=>{
+    const g=db.gruas.find(x=>x.id===r.grua);
+    const rendAuto=calcRendimientoGrua(r.grua);
+    const rendFinal=rendAuto!==null?rendAuto:(g&&g.rend?parseFloat(g.rend):null);
+    const kmDisp=rendFinal?Math.round(r.litros*rendFinal):null;
+    const rendTramo=r.kmRec&&r.litros?(r.kmRec/r.litros).toFixed(2):null;
+    const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
     return `<tr>
       <td class="mono">${fmtD(r.fecha)}</td>
       <td><span class="grua-chip">${r.grua}</span></td>
       <td class="mono">${r.litros} L</td>
-      <td class="mono">${r.kmRec ? fmtN(r.kmRec) + ' km' : '—'}</td>
-      <td>${rendTramo ? `<span class="badge badge-green">${rendTramo} km/L</span>` : '—'}</td>
-      <td>${kmDisponibles !== null ? `<span class="badge badge-navy">${fmtN(kmDisponibles)} km</span>` : '<span class="badge badge-gray">Sin datos</span>'}</td>
+      <td class="mono">${r.kmRec?fmtN(r.kmRec)+' km':'—'}</td>
+      <td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'—'}</td>
+      <td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td>
       <td class="mono">${fmtM(r.costo)}</td>
-      <td class="mono">${pxl ? '$' + pxl + '/L' : '—'}</td>
-      <td class="mono">${r.odo ? fmtN(r.odo) + ' km' : '—'}</td>
-      <td class="truncate">${r.notas || '—'}</td>
-      <td><button class="btn btn-danger" onclick="deleteRecarga(${r.ts})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+      <td class="mono">${pxl?'$'+pxl+'/L':'—'}</td>
+      <td class="mono">${r.odo?fmtN(r.odo)+' km':'—'}</td>
+      <td class="truncate">${r.notas||'—'}</td>
+      <td>${renderFotosThumb(r.fotos)}</td>
+      <td><button class="btn btn-danger" onclick="deleteRecarga(${r.ts})">🗑</button></td>
     </tr>`;
   }).join('');
 }
 
-// ── MANTENIMIENTO ──
+// ══ MANTENIMIENTO ══
 function addMant() {
-  const grua = document.getElementById('mant-grua').value;
+  const grua=document.getElementById('mant-grua').value;
   if (!grua) return alert('Selecciona una grúa.');
-  db.mantenimientos.push({ grua, tipo: document.getElementById('mant-tipo').value, fecha: document.getElementById('mant-fecha').value, costo: parseFloat(document.getElementById('mant-costo').value) || 0, km: document.getElementById('mant-km').value || '', prox: document.getElementById('mant-prox').value.trim(), taller: document.getElementById('mant-taller').value.trim(), obs: document.getElementById('mant-obs').value.trim(), ts: Date.now() });
-  ['mant-costo','mant-km','mant-prox','mant-taller','mant-obs'].forEach(i => document.getElementById(i).value = '');
+  const fotos=mantFotosTemp.filter(Boolean);
+  db.mantenimientos.push({grua, tipo:document.getElementById('mant-tipo').value, fecha:document.getElementById('mant-fecha').value, costo:parseFloat(document.getElementById('mant-costo').value)||0, km:document.getElementById('mant-km').value||'', prox:document.getElementById('mant-prox').value.trim(), taller:document.getElementById('mant-taller').value.trim(), obs:document.getElementById('mant-obs').value.trim(), fotos, ts:Date.now()});
+  ['mant-costo','mant-km','mant-prox','mant-taller','mant-obs'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('mant-fotos-preview').innerHTML='';
+  mantFotosTemp=[];
   saveDB(); renderAll();
 }
-function deleteMant(ts) { db.mantenimientos = db.mantenimientos.filter(m => m.ts !== ts); saveDB(); renderAll(); }
-
+function deleteMant(ts) { db.mantenimientos=db.mantenimientos.filter(m=>m.ts!==ts); saveDB(); renderAll(); }
 function renderMant() {
-  const totalC = db.mantenimientos.reduce((a, m) => a + (m.costo || 0), 0);
-  const conProx = db.mantenimientos.filter(m => m.prox).length;
-  document.getElementById('mant-stats').innerHTML = `
+  const totalC=db.mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
+  document.getElementById('mant-stats').innerHTML=`
     <div class="stat accent"><div class="stat-label">Servicios registrados</div><div class="stat-value">${db.mantenimientos.length}</div></div>
-    <div class="stat green"><div class="stat-label">Con próximo servicio</div><div class="stat-value">${conProx}</div></div>
+    <div class="stat green"><div class="stat-label">Con próximo servicio</div><div class="stat-value">${db.mantenimientos.filter(m=>m.prox).length}</div></div>
     <div class="stat red"><div class="stat-label">Gasto mantenimiento</div><div class="stat-value">${fmtM(totalC)}</div></div>`;
 
-  const sm = document.getElementById('mant-grua');
-  const prev = sm.value;
-  sm.innerHTML = db.gruas.length ? db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('') : '<option value="">Sin grúas</option>';
-  if (prev) sm.value = prev;
+  const sm=document.getElementById('mant-grua'); const sprev=sm.value;
+  sm.innerHTML=db.gruas.length?db.gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' — '+g.chofer:''}</option>`).join(''):'<option value="">Sin grúas</option>';
+  if (sprev) sm.value=sprev;
 
-  const fg = document.getElementById('mant-filter-grua');
-  const fgv = fg.value;
-  fg.innerHTML = '<option value="">Todas las grúas</option>' + db.gruas.map(g => `<option value="${g.id}">${g.id}</option>`).join('');
-  fg.value = fgv;
+  const fg=document.getElementById('mant-filter-grua'); const fgv=fg.value;
+  fg.innerHTML='<option value="">Todas las grúas</option>'+db.gruas.map(g=>`<option value="${g.id}">${g.id}</option>`).join('');
+  fg.value=fgv;
 
-  const ft = document.getElementById('mant-filter-tipo').value;
-  let list = [...db.mantenimientos].sort((a,b) => b.ts - a.ts);
-  if (fgv) list = list.filter(m => m.grua === fgv);
-  if (ft) list = list.filter(m => m.tipo === ft);
+  const ft=document.getElementById('mant-filter-tipo').value;
+  let list=[...db.mantenimientos].sort((a,b)=>b.ts-a.ts);
+  if (fgv) list=list.filter(m=>m.grua===fgv);
+  if (ft) list=list.filter(m=>m.tipo===ft);
 
-  const tbody = document.getElementById('mant-table');
-  if (!list.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin servicios registrados.</td></tr>'; return; }
-  tbody.innerHTML = list.map(m => `<tr>
+  const tbody=document.getElementById('mant-table');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="10" class="empty">Sin servicios.</td></tr>'; return; }
+  tbody.innerHTML=list.map(m=>`<tr>
     <td class="mono">${fmtD(m.fecha)}</td>
     <td><span class="grua-chip">${m.grua}</span></td>
     <td><span class="badge badge-navy">${m.tipo}</span></td>
-    <td class="mono">${m.km ? fmtN(m.km) + ' km' : '—'}</td>
+    <td class="mono">${m.km?fmtN(m.km)+' km':'—'}</td>
     <td class="mono">${fmtM(m.costo)}</td>
-    <td class="truncate">${m.prox || '—'}</td>
-    <td class="truncate">${m.taller || '—'}</td>
-    <td class="truncate">${m.obs || '—'}</td>
-    <td><button class="btn btn-danger" onclick="deleteMant(${m.ts})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></td>
+    <td class="truncate">${m.prox||'—'}</td>
+    <td class="truncate">${m.taller||'—'}</td>
+    <td class="truncate">${m.obs||'—'}</td>
+    <td>${renderFotosThumb(m.fotos)}</td>
+    <td><button class="btn btn-danger" onclick="deleteMant(${m.ts})">🗑</button></td>
   </tr>`).join('');
 }
 
-// ── RESUMEN ──
+// ══ RESUMEN ══
 function renderResumen() {
-  const el = document.getElementById('resumen-content');
-  if (!db.gruas.length) { el.innerHTML = '<div class="card"><p class="empty">Registra grúas primero para ver el resumen.</p></div>'; return; }
-  const totalGasCost = db.recargas.reduce((a, r) => a + (r.costo || 0), 0);
-  const totalMantCost = db.mantenimientos.reduce((a, m) => a + (m.costo || 0), 0);
-  let html = `<div class="stats-grid">
-    <div class="stat accent"><div class="stat-label">Flota total</div><div class="stat-value">${db.gruas.length}</div><div class="stat-sub">grúas</div></div>
-    <div class="stat"><div class="stat-label">Total litros</div><div class="stat-value">${fmtN(Math.round(db.recargas.reduce((a,r)=>a+r.litros,0)))}</div><div class="stat-sub">cargados</div></div>
-    <div class="stat red"><div class="stat-label">Gasto combustible</div><div class="stat-value">${fmtM(totalGasCost)}</div></div>
-    <div class="stat red"><div class="stat-label">Gasto mantenimiento</div><div class="stat-value">${fmtM(totalMantCost)}</div></div>
-    <div class="stat"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(totalGasCost + totalMantCost)}</div></div>
+  const el=document.getElementById('resumen-content');
+  if (!db.gruas.length) { el.innerHTML='<div class="card"><p class="empty">Registra grúas primero.</p></div>'; return; }
+  const tGas=db.recargas.reduce((a,r)=>a+(r.costo||0),0);
+  const tMant=db.mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
+  let html=`<div class="stats-grid">
+    <div class="stat accent"><div class="stat-label">Flota total</div><div class="stat-value">${db.gruas.length}</div></div>
+    <div class="stat"><div class="stat-label">Total litros</div><div class="stat-value">${fmtN(Math.round(db.recargas.reduce((a,r)=>a+r.litros,0)))}</div></div>
+    <div class="stat red"><div class="stat-label">Gasto combustible</div><div class="stat-value">${fmtM(tGas)}</div></div>
+    <div class="stat red"><div class="stat-label">Gasto mantenimiento</div><div class="stat-value">${fmtM(tMant)}</div></div>
+    <div class="stat"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(tGas+tMant)}</div></div>
   </div>
   <div class="card"><div class="card-title">Estado por grúa</div><div class="table-wrap"><table>
-    <thead><tr><th>Grúa</th><th>Tipo</th><th>Km/L</th><th>Total litros</th><th>Km disponibles</th><th>Recargas</th><th>Servicios</th><th>Último servicio</th></tr></thead>
+    <thead><tr><th>Foto</th><th>Grúa</th><th>Chofer</th><th>Tipo</th><th>Km/L</th><th>Litros</th><th>Km disponibles</th><th>Recargas</th><th>Servicios</th><th>Último servicio</th></tr></thead>
     <tbody>`;
-  db.gruas.forEach(g => {
-    const recargas = db.recargas.filter(r => r.grua === g.id);
-    const mants = db.mantenimientos.filter(m => m.grua === g.id).sort((a,b) => b.ts - a.ts);
-    const totalL = recargas.reduce((a,r) => a + r.litros, 0);
-    const rendAuto = calcRendimientoGrua(g.id);
-    const rendFinal = rendAuto !== null ? rendAuto : (g.rend ? parseFloat(g.rend) : null);
-    const km = rendFinal ? Math.round(totalL * rendFinal) : null;
-    const ultimo = mants[0];
-    const rendDisplay = rendAuto !== null ? `${rendAuto} km/L ⚡` : (g.rend ? g.rend + ' km/L' : '—');
-    html += `<tr>
+  db.gruas.forEach(g=>{
+    const recs=db.recargas.filter(r=>r.grua===g.id);
+    const mants=db.mantenimientos.filter(m=>m.grua===g.id).sort((a,b)=>b.ts-a.ts);
+    const totalL=recs.reduce((a,r)=>a+r.litros,0);
+    const rendAuto=calcRendimientoGrua(g.id);
+    const rendFinal=rendAuto!==null?rendAuto:(g.rend?parseFloat(g.rend):null);
+    const km=rendFinal?Math.round(totalL*rendFinal):null;
+    const fotoCell=g.foto?`<img src="${g.foto}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;" onclick="openLightbox('${g.foto}')" />`:'🚛';
+    html+=`<tr>
+      <td>${fotoCell}</td>
       <td><span class="grua-chip">${g.id}</span></td>
+      <td>${g.chofer||'—'}</td>
       <td>${g.tipo}</td>
-      <td class="mono">${rendDisplay}</td>
+      <td class="mono">${rendAuto!==null?rendAuto+' ⚡':g.rend?g.rend:'—'}</td>
       <td class="mono">${fmtN(Math.round(totalL))} L</td>
-      <td>${km !== null ? `<span class="badge badge-green">${fmtN(km)} km</span>` : '<span class="badge badge-gray">Sin rendimiento</span>'}</td>
-      <td class="mono">${recargas.length}</td>
+      <td>${km!==null?`<span class="badge badge-green">${fmtN(km)} km</span>`:'—'}</td>
+      <td class="mono">${recs.length}</td>
       <td class="mono">${mants.length}</td>
-      <td>${ultimo ? `<span class="badge badge-navy">${ultimo.tipo}</span> ${fmtD(ultimo.fecha)}` : '—'}</td>
+      <td>${mants[0]?`<span class="badge badge-navy">${mants[0].tipo}</span> ${fmtD(mants[0].fecha)}`:'—'}</td>
     </tr>`;
   });
-  html += '</tbody></table></div></div>';
-  el.innerHTML = html;
+  html+='</tbody></table></div></div>';
+  el.innerHTML=html;
 }
 
-function renderAll() {
-  renderGruas();
-  renderGas();
-  renderMant();
-  renderResumen();
-}
+function renderAll() { renderGruas(); renderGas(); renderMant(); renderResumen(); }
 
-// INIT
 loadDB();
-document.getElementById('gas-fecha').value = todayStr();
-document.getElementById('mant-fecha').value = todayStr();
+document.getElementById('gas-fecha').value=todayStr();
+document.getElementById('mant-fecha').value=todayStr();
 renderAll();
 </script>
 </body>
