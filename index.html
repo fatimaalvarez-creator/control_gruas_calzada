@@ -639,7 +639,7 @@ function renderGas(){
     const kmDisp=rendFinal?Math.round(r.litros*rendFinal):null;
     const rendTramo=r.km_rec&&r.litros?(r.km_rec/r.litros).toFixed(2):null;
     const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
-    const delBtn=isAdmin?`<td><button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+    const gasEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button>`:'';const delBtn=isAdmin?`<td style="display:flex;gap:4px">${gasEditBtn}<button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
     return`<tr><td class="mono">${fmtD(r.fecha)}</td><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'&#8212;'}</td><td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'&#8212;'}</td><td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'&#8212;'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'&#8212;'}</td><td class="truncate">${r.notas||'&#8212;'}</td><td>${renderFotosThumb(r.fotos)}</td>${delBtn}</tr>`;
   }).join('');
 }
@@ -907,6 +907,107 @@ async function saveEditMant(){
   toast('Servicio actualizado correctamente');
 }
 
+
+// EDICION RECARGA
+let editRecFotosTemp = [];
+
+function calcEditRecCosto(){
+  const l=parseFloat(document.getElementById('edit-rec-litros').value);
+  const c=parseFloat(document.getElementById('edit-rec-costo').value);
+  const el=document.getElementById('edit-rec-pxl-auto');
+  const pxlIn=document.getElementById('edit-rec-pxl');
+  if(l>0&&c>0){const p=(c/l).toFixed(2);el.textContent='-> $'+p+' por litro';pxlIn.value=p;}else el.textContent='';
+}
+function calcEditRecTotal(){
+  const l=parseFloat(document.getElementById('edit-rec-litros').value);
+  const p=parseFloat(document.getElementById('edit-rec-pxl').value);
+  if(l>0&&p>0){document.getElementById('edit-rec-costo').value=(l*p).toFixed(2);document.getElementById('edit-rec-pxl-auto').textContent='-> Total: $'+(l*p).toFixed(2);}
+}
+function previewEditRecFotos(input){
+  const container=document.getElementById('edit-rec-fotos-preview');
+  Array.from(input.files).forEach(async file=>{
+    const b64=await fileToBase64(file);
+    editRecFotosTemp.push(b64);
+    const idx=editRecFotosTemp.length-1;
+    const wrap=document.createElement('div');wrap.className='img-preview-wrap';
+    const img=document.createElement('img');img.src=b64;img.className='img-preview';img.onclick=()=>openLightbox(b64);
+    const btn=document.createElement('button');btn.className='img-remove';btn.textContent='x';
+    btn.onclick=()=>{editRecFotosTemp[idx]=null;wrap.remove();};
+    wrap.appendChild(img);wrap.appendChild(btn);container.appendChild(wrap);
+  });
+  input.value='';
+}
+function openEditRecargaModal(id){
+  if(!isAdmin)return;
+  const r=recargas.find(x=>x.id===id);if(!r)return;
+  document.getElementById('edit-rec-id').value=r.id;
+  // fill grua select
+  const sg=document.getElementById('edit-rec-grua');
+  sg.innerHTML=gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');
+  sg.value=r.grua;
+  document.getElementById('edit-rec-fecha').value=r.fecha||'';
+  document.getElementById('edit-rec-litros').value=r.litros||'';
+  document.getElementById('edit-rec-costo').value=r.costo||'';
+  document.getElementById('edit-rec-pxl').value=r.pxl||'';
+  document.getElementById('edit-rec-odo').value=r.odo||'';
+  document.getElementById('edit-rec-kmrec').value=r.km_rec||'';
+  document.getElementById('edit-rec-notas').value=r.notas||'';
+  // calc pxl auto
+  if(r.litros&&r.costo) document.getElementById('edit-rec-pxl-auto').textContent='-> $'+(r.costo/r.litros).toFixed(2)+' por litro';
+  else document.getElementById('edit-rec-pxl-auto').textContent='';
+  // reset new fotos
+  editRecFotosTemp=[];
+  document.getElementById('edit-rec-fotos-preview').innerHTML='';
+  document.getElementById('edit-rec-fotos-input').value='';
+  // show existing fotos
+  const fotoCurrent=document.getElementById('edit-rec-fotos-current');
+  const existing=r.fotos||[];
+  if(existing.length){
+    fotoCurrent.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'+
+      existing.map(f=>`<img src="${f}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${f}')"/>`).join('')+
+      '</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (las nuevas se agregaran)</span>';
+  } else {
+    fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin fotos actuales</span>';
+  }
+  document.getElementById('modal-edit-recarga').classList.add('open');
+}
+function closeEditRecargaModal(e){
+  if(e&&e.target!==document.getElementById('modal-edit-recarga'))return;
+  document.getElementById('modal-edit-recarga').classList.remove('open');
+}
+async function saveEditRecarga(){
+  if(!isAdmin)return;
+  const id=document.getElementById('edit-rec-id').value;
+  const grua=document.getElementById('edit-rec-grua').value;
+  if(!grua)return toast('Selecciona una grua',true);
+  const litros=parseFloat(document.getElementById('edit-rec-litros').value);
+  if(!litros||litros<=0)return toast('Ingresa los litros',true);
+  const existingR=recargas.find(r=>r.id===id);
+  const existingFotos=existingR?.fotos||[];
+  const newFotos=editRecFotosTemp.filter(Boolean);
+  const updates={
+    grua,
+    fecha:document.getElementById('edit-rec-fecha').value,
+    litros,
+    costo:parseFloat(document.getElementById('edit-rec-costo').value)||0,
+    pxl:parseFloat(document.getElementById('edit-rec-pxl').value)||0,
+    odo:parseFloat(document.getElementById('edit-rec-odo').value)||null,
+    km_rec:parseFloat(document.getElementById('edit-rec-kmrec').value)||null,
+    notas:document.getElementById('edit-rec-notas').value.trim(),
+    fotos:[...existingFotos,...newFotos]
+  };
+  const{data,error}=await sb.from('recargas').update(updates).eq('id',id).select();
+  if(error)return toast('Error: '+error.message,true);
+  const idx2=recargas.findIndex(r=>r.id===id);
+  if(idx2!==-1) recargas[idx2]={...recargas[idx2],...updates};
+  editRecFotosTemp=[];
+  document.getElementById('modal-edit-recarga').classList.remove('open');
+  renderAll();
+  await loadAll();
+  renderAll();
+  toast('Recarga actualizada correctamente');
+}
+
 function renderAll(){renderGruas();renderGas();renderMant()}
 </script>
 
@@ -978,6 +1079,37 @@ function renderAll(){renderGruas();renderGas();renderMant()}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEditMantModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveEditMant()">&#x2713; Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDICION RECARGA -->
+<div class="modal-overlay" id="modal-edit-recarga" onclick="closeEditRecargaModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">&#x270F;&#xFE0F; Editar recarga de gasolina</div>
+      <button class="modal-close" onclick="closeEditRecargaModal()">&#x2715;</button>
+    </div>
+    <input type="hidden" id="edit-rec-id"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Grua *</label><select id="edit-rec-grua"></select></div>
+      <div class="form-group"><label>Fecha *</label><input id="edit-rec-fecha" type="date"/></div>
+      <div class="form-group"><label>Litros cargados *</label><input id="edit-rec-litros" type="number" min="0" step="0.1" oninput="calcEditRecCosto()"/></div>
+      <div class="form-group"><label>Costo total ($)</label><input id="edit-rec-costo" type="number" min="0" step="0.01" oninput="calcEditRecCosto()"/><div class="costo-auto" id="edit-rec-pxl-auto"></div></div>
+      <div class="form-group"><label>Precio por litro ($/L)</label><input id="edit-rec-pxl" type="number" min="0" step="0.01" oninput="calcEditRecTotal()"/></div>
+      <div class="form-group"><label>Odometro tablero (km)</label><input id="edit-rec-odo" type="number" min="0"/></div>
+      <div class="form-group"><label>Km recorridos</label><input id="edit-rec-kmrec" type="number" min="0" step="1"/></div>
+      <div class="form-group"><label>Estacion / Ubicacion</label><input id="edit-rec-notas" type="text" placeholder="Ej. Pemex Av. Vallarta"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Fotos del ticket</label>
+      <div id="edit-rec-fotos-current" style="margin-bottom:8px"></div>
+      <input id="edit-rec-fotos-input" type="file" accept="image/*" multiple onchange="previewEditRecFotos(this)"/>
+      <div class="img-preview-grid" id="edit-rec-fotos-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditRecargaModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveEditRecarga()">&#x2713; Guardar cambios</button>
     </div>
   </div>
 </div>
