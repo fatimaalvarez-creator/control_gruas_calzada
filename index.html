@@ -550,7 +550,7 @@ function renderGruas(){
     const totalL=recargas.filter(r=>r.grua===g.id).reduce((a,r)=>a+r.litros,0);
     const km=rendFinal?Math.round(totalL*rendFinal):null;
     const fotoCell=g.foto?`<img src="${g.foto}" class="grua-foto" onclick="openLightbox('${g.foto}')">`:'<div class="grua-foto-placeholder">&#x1F69B;</div>';
-    const delBtn=isAdmin?`<td style="display:flex;gap:4px"><button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditModal('${g.id}')">&#x270F;</button><button class="btn btn-danger" onclick="deleteGrua('${g.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+    const editBtn=`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditModal('${g.id}')">&#x270F;</button>`;const delBtn=isAdmin?`<td style="display:flex;gap:4px">${editBtn}<button class="btn btn-danger" onclick="deleteGrua('${g.id}')">&#x1F5D1;</button></td>`:`<td>${editBtn}</td>`;
     return`<tr><td>${fotoCell}</td><td><span class="grua-chip">${g.id}</span></td><td>${g.tipo}</td><td>${g.chofer||'&#8212;'}</td><td class="mono">${g.placa||'&#8212;'}</td><td class="mono">${g.serie||'&#8212;'}</td><td>${g.modelo||'&#8212;'}</td><td>${rendLabel}</td><td>${g.tank?g.tank+' L':'&#8212;'}</td><td>${km!==null?`<span class="badge badge-green">${fmtN(km)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td>${delBtn}</tr>`;
   }).join('');
 }
@@ -668,7 +668,7 @@ function renderMant(){
   const tbody=document.getElementById('mant-table');
   if(!list.length){tbody.innerHTML='<tr><td colspan="11" class="empty">Sin servicios registrados.</td></tr>';return}
   tbody.innerHTML=list.map(m=>{
-    const delBtn=isAdmin?`<td><button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+    const mantEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditMantModal('${m.id}')">&#x270F;</button>`:'';const delBtn=isAdmin?`<td style="display:flex;gap:4px">${mantEditBtn}<button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
     return`<tr><td class="mono">${fmtD(m.fecha)}</td><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'&#8212;'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'&#8212;'}</td><td class="truncate">${m.taller||'&#8212;'}</td><td class="truncate">${m.obs||'&#8212;'}</td><td>${renderFotosThumb(m.fotos)}</td>${delBtn}</tr>`;
   }).join('');
 }
@@ -758,7 +758,6 @@ async function saveEditGrua() {
   if(!newId) return toast('El ID es requerido', true);
   if(newId !== originalId && gruas.find(g => g.id === newId)) return toast('Ya existe una grua con ese ID', true);
 
-  // foto: nueva si subieron, si no la existente
   let foto = gruas.find(g => g.id === originalId)?.foto || null;
   const editFotoPreview = document.getElementById('edit-foto-preview');
   if(editFotoPreview.style.display !== 'none') {
@@ -777,12 +776,99 @@ async function saveEditGrua() {
     foto
   };
 
-  const { error } = await sb.from('gruas').update(updates).eq('id', originalId);
-  if(error) return toast('Error al guardar: ' + error.message, true);
+  // Remove 'id' from updates object — Supabase update cannot change PK via update()
+  const updateFields = {
+    tipo: updates.tipo,
+    chofer: updates.chofer,
+    rend: updates.rend,
+    tank: updates.tank,
+    placa: updates.placa,
+    serie: updates.serie,
+    modelo: updates.modelo,
+    foto: updates.foto
+  };
+
+  if(newId !== originalId) {
+    const { error: insErr } = await sb.from('gruas').insert([updates]);
+    if(insErr){ console.error('insert error',insErr); return toast('Error: ' + insErr.message, true); }
+    await sb.from('recargas').update({grua: newId}).eq('grua', originalId);
+    await sb.from('mantenimientos').update({grua: newId}).eq('grua', originalId);
+    await sb.from('papeleria').update({grua: newId}).eq('grua', originalId);
+    const { error: delErr } = await sb.from('gruas').delete().eq('id', originalId);
+    if(delErr){ console.error('delete error',delErr); return toast('Error al eliminar anterior: ' + delErr.message, true); }
+  } else {
+    console.log('Updating grua', originalId, 'with', updateFields);
+    const { data, error } = await sb.from('gruas').update(updateFields).eq('id', originalId).select();
+    console.log('Update result:', data, error);
+    if(error){ console.error('update error',error); return toast('Error: ' + error.message + ' | Code: ' + error.code, true); }
+    if(!data || data.length === 0){ return toast('No se actualizó ningún registro. Verifica permisos en Supabase.', true); }
+  }
+
   document.getElementById('modal-edit-grua').classList.remove('open');
+  // update local array immediately
+  const gIdx=gruas.findIndex(g=>g.id===originalId);
+  if(gIdx!==-1 && newId===originalId) gruas[gIdx]={...gruas[gIdx],...updateFields};
+  renderAll();
   await loadAll();
-  renderGruas();
+  renderAll();
   toast('Grua actualizada correctamente');
+}
+
+
+// EDICION MANTENIMIENTO
+function autoFillEditMantChofer(){
+  const g=gruas.find(x=>x.id===document.getElementById('edit-mant-grua').value);
+  if(g)document.getElementById('edit-mant-chofer').value=g.chofer||'';
+}
+function openEditMantModal(id){
+  if(!isAdmin)return;
+  const m=mantenimientos.find(x=>x.id===id);if(!m)return;
+  document.getElementById('edit-mant-id').value=m.id;
+  // fill grua select
+  const sg=document.getElementById('edit-mant-grua');
+  sg.innerHTML=gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');
+  sg.value=m.grua;
+  document.getElementById('edit-mant-chofer').value=m.chofer||'';
+  document.getElementById('edit-mant-tipo').value=m.tipo||'Cambio de aceite';
+  document.getElementById('edit-mant-fecha').value=m.fecha||'';
+  document.getElementById('edit-mant-costo').value=m.costo||'';
+  document.getElementById('edit-mant-km').value=m.km||'';
+  document.getElementById('edit-mant-prox').value=m.prox||'';
+  document.getElementById('edit-mant-taller').value=m.taller||'';
+  document.getElementById('edit-mant-obs').value=m.obs||'';
+  document.getElementById('modal-edit-mant').classList.add('open');
+}
+function closeEditMantModal(e){
+  if(e&&e.target!==document.getElementById('modal-edit-mant'))return;
+  document.getElementById('modal-edit-mant').classList.remove('open');
+}
+async function saveEditMant(){
+  if(!isAdmin)return;
+  const id=document.getElementById('edit-mant-id').value;
+  const grua=document.getElementById('edit-mant-grua').value;
+  if(!grua)return toast('Selecciona una grua',true);
+  const updates={
+    grua,
+    chofer:document.getElementById('edit-mant-chofer').value.trim()||null,
+    tipo:document.getElementById('edit-mant-tipo').value,
+    fecha:document.getElementById('edit-mant-fecha').value,
+    costo:parseFloat(document.getElementById('edit-mant-costo').value)||0,
+    km:parseFloat(document.getElementById('edit-mant-km').value)||null,
+    prox:document.getElementById('edit-mant-prox').value.trim(),
+    taller:document.getElementById('edit-mant-taller').value.trim(),
+    obs:document.getElementById('edit-mant-obs').value.trim()
+  };
+  const{data,error}=await sb.from('mantenimientos').update(updates).eq('id',id).select();
+  console.log('mant update result:', data, error);
+  if(error)return toast('Error: '+error.message,true);
+  // update local array immediately so UI reflects change right away
+  const idx2=mantenimientos.findIndex(m=>m.id===id);
+  if(idx2!==-1) mantenimientos[idx2]={...mantenimientos[idx2],...updates};
+  document.getElementById('modal-edit-mant').classList.remove('open');
+  renderAll();
+  await loadAll();
+  renderAll();
+  toast('Servicio actualizado correctamente');
 }
 
 function renderAll(){renderGruas();renderGas();renderMant()}
@@ -815,6 +901,41 @@ function renderAll(){renderGruas();renderGas();renderMant()}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEditModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveEditGrua()">&#x2713; Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDICION MANTENIMIENTO -->
+<div class="modal-overlay" id="modal-edit-mant" onclick="closeEditMantModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">&#x270F;&#xFE0F; Editar servicio de mantenimiento</div>
+      <button class="modal-close" onclick="closeEditMantModal()">&#x2715;</button>
+    </div>
+    <input type="hidden" id="edit-mant-id"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Grua *</label><select id="edit-mant-grua" onchange="autoFillEditMantChofer()"></select></div>
+      <div class="form-group"><label>Chofer</label><input id="edit-mant-chofer" type="text" placeholder="Ej. Juan Perez"/></div>
+      <div class="form-group"><label>Tipo de servicio *</label>
+        <select id="edit-mant-tipo">
+          <option>Cambio de aceite</option><option>Servicio electrico</option><option>Cambio de llantas</option>
+          <option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option>
+          <option>Frenos</option><option>Suspension</option><option>Transmision</option>
+          <option>Radiador / Refrigeracion</option><option>Revision general</option>
+          <option>Afinacion</option><option>Bateria</option><option>Lamineria y Pintura</option>
+          <option>Sistema Hidraulico</option><option>Tapiceria</option><option>Embrague</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Fecha *</label><input id="edit-mant-fecha" type="date"/></div>
+      <div class="form-group"><label>Costo ($)</label><input id="edit-mant-costo" type="number" min="0" step="0.01"/></div>
+      <div class="form-group"><label>Km al momento</label><input id="edit-mant-km" type="number" min="0"/></div>
+      <div class="form-group"><label>Proximo servicio</label><input id="edit-mant-prox" type="text" placeholder="Ej. 25000 km"/></div>
+      <div class="form-group"><label>Taller / Tecnico</label><input id="edit-mant-taller" type="text"/></div>
+      <div class="form-group full"><label>Observaciones</label><input id="edit-mant-obs" type="text"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditMantModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveEditMant()">&#x2713; Guardar cambios</button>
     </div>
   </div>
 </div>
