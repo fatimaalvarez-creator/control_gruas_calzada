@@ -469,15 +469,32 @@ function previewGruaFoto(input){
 }
 function parseFileItem(item){
   if(!item) return null;
-  try{ return JSON.parse(item); } catch(e){ return {data:item,name:'imagen',type:'image/jpeg'}; }
+  try{ const p=JSON.parse(item); return p; } catch(e){ return {data:item,name:'imagen',type:'image/jpeg'}; }
+}
+function openFile(item){
+  const fi=parseFileItem(item);
+  if(!fi) return;
+  const isImg=fi.type&&fi.type.startsWith('image/');
+  if(isImg){ openLightbox(fi.data); return; }
+  // For PDFs and other docs: open in new tab
+  const byteStr=atob(fi.data.split(',')[1]||fi.data);
+  const ab=new ArrayBuffer(byteStr.length);
+  const ia=new Uint8Array(ab);
+  for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
+  const blob=new Blob([ab],{type:fi.type||'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
 }
 function renderFotosThumb(fotos){
   if(!fotos||!fotos.length)return'—';const f=fotos.filter(Boolean);if(!f.length)return'—';
   return f.slice(0,3).map(item=>{
     const fi=parseFileItem(item);
-    const isImg=fi.type&&fi.type.startsWith('image/');
-    if(isImg) return `<img src="${fi.data}" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer;margin-right:2px" onclick="openLightbox('${fi.data}')"/>`;
-    return `<span title="${fi.name}" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;margin-right:2px;font-size:16px;cursor:default">&#x1F4C4;</span>`;
+    const isImg=fi&&fi.type&&fi.type.startsWith('image/');
+    const src=fi?fi.data:item;
+    const name=fi?fi.name:'archivo';
+    const safeItem=encodeURIComponent(JSON.stringify(fi));
+    if(isImg) return `<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer;margin-right:2px" onclick="openLightbox('${src}')"/>`;
+    return `<span title="${name}" onclick="openFile(decodeURIComponent('${safeItem}'))" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:5px;margin-right:2px;font-size:14px;cursor:pointer">&#x1F4C4;</span>`;
   }).join('')+(f.length>3?`<span style="font-size:11px;color:var(--text-3)">+${f.length-3}</span>`:'');
 }
 
@@ -618,7 +635,17 @@ function renderPapeleria(){
   el.innerHTML=(g&&g.foto?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)"><img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="openLightbox('${g.foto}')"/><div><div style="font-weight:600;font-size:15px">${g.id}</div><div style="font-size:13px;color:var(--text-2)">${g.chofer||'Sin chofer asignado'} &mdash; ${g.tipo}</div></div></div>`:'')+
   '<div class="papel-grid">'+TIPOS.map(t=>{
     const fotos=p[t.key]||[];
-    const renderPapelItem=(f,i)=>{const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';const preview=isImg?`<img src="${src}" class="papel-img" onclick="openLightbox('${src}')"/>`:`<div style="width:70px;height:70px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px"><span style="font-size:20px">&#x1F4C4;</span><span style="font-size:9px;color:var(--text-2);text-align:center;word-break:break-all;line-height:1.1">${name}</span></div>`;return`<div style="position:relative">${preview}${isAdmin?`<button class="img-remove" onclick="deletePapelFoto('${gruaId}','${t.key}',${i})">x</button>`:''}</div>`;};return`<div class="papel-card"><div class="papel-card-title"><span>${t.icon} ${t.label}</span><span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span></div><div class="papel-imgs">${fotos.length?fotos.map((f,i)=>renderPapelItem(f,i)).join(''):'<p class="papel-empty">Sin archivos aun</p>'}</div><label class="upload-btn-label">&#x1F4CE; Agregar archivo<input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="uploadPapelDirect('${gruaId}','${t.key}',this)"/></label></div>`;
+    const renderPapelItem=(f,i)=>{
+  const fi=parseFileItem(f);
+  const isImg=fi&&fi.type&&fi.type.startsWith('image/');
+  const src=fi?fi.data:f;
+  const name=fi?fi.name:'archivo';
+  const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+  const preview=isImg
+    ?`<img src="${src}" class="papel-img" onclick="openLightbox('${src}')"/>`
+    :`<div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:70px;height:70px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px;cursor:pointer" title="Abrir ${name}"><span style="font-size:22px">&#x1F4C4;</span><span style="font-size:9px;color:var(--navy);text-align:center;word-break:break-all;line-height:1.1;font-weight:600">${name.length>12?name.substring(0,10)+'...':name}</span></div>`;
+  return`<div style="position:relative">${preview}${isAdmin?`<button class="img-remove" onclick="deletePapelFoto('${gruaId}','${t.key}',${i})">x</button>`:''}</div>`;
+};return`<div class="papel-card"><div class="papel-card-title"><span>${t.icon} ${t.label}</span><span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span></div><div class="papel-imgs">${fotos.length?fotos.map((f,i)=>renderPapelItem(f,i)).join(''):'<p class="papel-empty">Sin archivos aun</p>'}</div><label class="upload-btn-label">&#x1F4CE; Agregar archivo<input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="uploadPapelDirect('${gruaId}','${t.key}',this)"/></label></div>`;
   }).join('')+'</div>';
 }
 async function uploadPapelDirect(gruaId,tipo,input){
@@ -896,17 +923,25 @@ function openEditMantModal(id){
   document.getElementById('edit-mant-obs').value=m.obs||'';
   // reset foto temp and preview
   editMantFotosTemp = [];
+  editMantExistingFotos = [...(m.fotos||[])];
   document.getElementById('edit-mant-fotos-preview').innerHTML = '';
   document.getElementById('edit-mant-fotos-input').value = '';
   // show existing fotos
   const fotoCurrent = document.getElementById('edit-mant-fotos-current');
   const existingFotos = m.fotos || [];
+  editMantExistingFotos = [...existingFotos];
   if(existingFotos.length) {
     fotoCurrent.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">' +
-      existingFotos.map(f => `<img src="${f}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${f}')"/>`).join('') +
-      '</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (las nuevas que subas se agregaran)</span>';
+      existingFotos.map((f,i)=>{
+        const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+        const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+        return isImg
+          ?`<div style="position:relative"><img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/><button onclick="removeExistingMantFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`
+          :`<div style="position:relative"><div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:60px;height:60px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;cursor:pointer"><span style="font-size:18px">&#x1F4C4;</span><span style="font-size:8px;color:var(--navy);text-align:center;word-break:break-all">${name.length>10?name.substring(0,8)+'...':name}</span></div><button onclick="removeExistingMantFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`;
+      }).join('') +
+      '</div><span style="font-size:12px;color:var(--text-3)">Archivos actuales (haz clic en x para eliminar, o agrega nuevos abajo)</span>';
   } else {
-    fotoCurrent.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin fotos actuales</span>';
+    fotoCurrent.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin archivos actuales</span>';
   }
   document.getElementById('modal-edit-mant').classList.add('open');
 }
@@ -931,10 +966,8 @@ async function saveEditMant(){
     obs:document.getElementById('edit-mant-obs').value.trim()
   };
   // merge existing fotos with new ones
-  const existingM = mantenimientos.find(m=>m.id===id);
-  const existingFotas = existingM?.fotos || [];
   const newFotas = editMantFotosTemp.filter(Boolean);
-  updates.fotos = [...existingFotas, ...newFotas];
+  updates.fotos = [...editMantExistingFotos, ...newFotas];
 
   const{data,error}=await sb.from('mantenimientos').update(updates).eq('id',id).select();
   console.log('mant update result:', data, error);
@@ -1008,6 +1041,7 @@ function openEditRecargaModal(id){
   else document.getElementById('edit-rec-pxl-auto').textContent='';
   // reset new fotos
   editRecFotosTemp=[];
+  editRecExistingFotos=[...(r.fotos||[])];
   document.getElementById('edit-rec-fotos-preview').innerHTML='';
   document.getElementById('edit-rec-fotos-input').value='';
   // show existing fotos
@@ -1015,10 +1049,16 @@ function openEditRecargaModal(id){
   const existing=r.fotos||[];
   if(existing.length){
     fotoCurrent.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'+
-      existing.map(f=>`<img src="${f}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${f}')"/>`).join('')+
-      '</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (las nuevas se agregaran)</span>';
+      existing.map((f,i)=>{
+        const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+        const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+        return isImg
+          ?`<div style="position:relative"><img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/><button onclick="removeExistingRecFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`
+          :`<div style="position:relative"><div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:60px;height:60px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;cursor:pointer"><span style="font-size:18px">&#x1F4C4;</span><span style="font-size:8px;color:var(--navy);text-align:center;word-break:break-all">${name.length>10?name.substring(0,8)+'...':name}</span></div><button onclick="removeExistingRecFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`;
+      }).join('')+
+      '</div><span style="font-size:12px;color:var(--text-3)">Archivos actuales (haz clic en x para eliminar, o agrega nuevos abajo)</span>';
   } else {
-    fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin fotos actuales</span>';
+    fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin archivos actuales</span>';
   }
   document.getElementById('modal-edit-recarga').classList.add('open');
 }
@@ -1033,8 +1073,6 @@ async function saveEditRecarga(){
   if(!grua)return toast('Selecciona una grua',true);
   const litros=parseFloat(document.getElementById('edit-rec-litros').value);
   if(!litros||litros<=0)return toast('Ingresa los litros',true);
-  const existingR=recargas.find(r=>r.id===id);
-  const existingFotos=existingR?.fotos||[];
   const newFotos=editRecFotosTemp.filter(Boolean);
   const updates={
     grua,
@@ -1045,7 +1083,7 @@ async function saveEditRecarga(){
     odo:parseFloat(document.getElementById('edit-rec-odo').value)||null,
     km_rec:parseFloat(document.getElementById('edit-rec-kmrec').value)||null,
     notas:document.getElementById('edit-rec-notas').value.trim(),
-    fotos:[...existingFotos,...newFotos]
+    fotos:[...editRecExistingFotos,...newFotos]
   };
   const{data,error}=await sb.from('recargas').update(updates).eq('id',id).select();
   if(error)return toast('Error: '+error.message,true);
@@ -1057,6 +1095,51 @@ async function saveEditRecarga(){
   await loadAll();
   renderAll();
   toast('Recarga actualizada correctamente');
+}
+
+
+// helpers to remove existing files from edit modals
+let editMantExistingFotos = [];
+let editRecExistingFotos = [];
+
+function removeExistingMantFoto(idx){
+  editMantExistingFotos.splice(idx,1);
+  // re-render current list
+  const fotoCurrent=document.getElementById('edit-mant-fotos-current');
+  const id=document.getElementById('edit-mant-id').value;
+  const m={fotos:editMantExistingFotos};
+  // rebuild display
+  if(editMantExistingFotos.length){
+    fotoCurrent.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'+
+      editMantExistingFotos.map((f,i)=>{
+        const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+        const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+        return isImg
+          ?`<div style="position:relative"><img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/><button onclick="removeExistingMantFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`
+          :`<div style="position:relative"><div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:60px;height:60px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;cursor:pointer"><span style="font-size:18px">&#x1F4C4;</span><span style="font-size:8px;color:var(--navy);text-align:center;word-break:break-all">${name.length>10?name.substring(0,8)+'...':name}</span></div><button onclick="removeExistingMantFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`;
+      }).join('')+
+      '</div><span style="font-size:12px;color:var(--text-3)">Archivos actuales (haz clic en x para eliminar)</span>';
+  } else {
+    fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin archivos actuales</span>';
+  }
+}
+
+function removeExistingRecFoto(idx){
+  editRecExistingFotos.splice(idx,1);
+  const fotoCurrent=document.getElementById('edit-rec-fotos-current');
+  if(editRecExistingFotos.length){
+    fotoCurrent.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'+
+      editRecExistingFotos.map((f,i)=>{
+        const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+        const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+        return isImg
+          ?`<div style="position:relative"><img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/><button onclick="removeExistingRecFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`
+          :`<div style="position:relative"><div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:60px;height:60px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;cursor:pointer"><span style="font-size:18px">&#x1F4C4;</span><span style="font-size:8px;color:var(--navy);text-align:center;word-break:break-all">${name.length>10?name.substring(0,8)+'...':name}</span></div><button onclick="removeExistingRecFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button></div>`;
+      }).join('')+
+      '</div><span style="font-size:12px;color:var(--text-3)">Archivos actuales (haz clic en x para eliminar)</span>';
+  } else {
+    fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin archivos actuales</span>';
+  }
 }
 
 function renderAll(){renderGruas();renderGas();renderMant()}
