@@ -381,7 +381,7 @@ async function initApp(){
   document.getElementById('user-nombre').textContent=currentUser.nombre;
   document.getElementById('user-rol-badge').textContent=isAdmin?'ADMIN':'USUARIO';
   document.getElementById('header-date').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  document.getElementById('nav-admin').style.display=isAdmin?'flex':'none';
+  document.getElementById('nav-admin').style.display=(currentUser.username==='Fatima')?'flex':'none';
   document.getElementById('card-add-grua').style.display=isAdmin?'block':'none';
   document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('mant-fecha').value=todayStr();
@@ -692,7 +692,7 @@ function renderResumen(){
 
 // USUARIOS
 async function addUsuario(){
-  if(!isAdmin)return;
+  if(currentUser.username!=='Fatima')return toast('Solo Fatima puede crear usuarios',true);
   const nombre=document.getElementById('adm-nombre').value.trim();const username=document.getElementById('adm-user').value.trim();
   const password=document.getElementById('adm-pass').value.trim();const rol=document.getElementById('adm-rol').value;
   if(!nombre||!username||!password)return toast('Todos los campos son requeridos',true);
@@ -702,7 +702,7 @@ async function addUsuario(){
   toast('Usuario creado correctamente');renderUsuarios();
 }
 async function deleteUsuario(id){
-  if(!isAdmin)return;if(!confirm('Eliminar este usuario?'))return;
+  if(currentUser.username!=='Fatima')return;if(!confirm('Eliminar este usuario?'))return;
   await sb.from('usuarios').delete().eq('id',id);toast('Usuario eliminado');renderUsuarios();
 }
 async function renderUsuarios(){
