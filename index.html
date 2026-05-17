@@ -107,6 +107,14 @@ tbody tr:hover td{background:var(--surface-2)}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;z-index:9998;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}.toast.error{background:var(--red)}
 @media(max-width:600px){.main{padding:1rem}.header{padding:0 1rem}.nav{padding:0 1rem}.stat-value{font-size:20px}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:8000;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:var(--radius-lg);padding:1.75rem;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.modal-title{font-size:16px;font-weight:600;color:var(--text)}
+.modal-close{background:none;border:none;font-size:26px;cursor:pointer;color:var(--text-3);line-height:1}
+.modal-close:hover{color:var(--red)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -484,21 +492,48 @@ function calcKmRecorridos(){
 }
 function autoFillMantChofer(){const g=gruas.find(x=>x.id===document.getElementById('mant-grua').value);if(g)document.getElementById('mant-chofer').value=g.chofer||''}
 
-// GRUAS
+// GRUAS CORREGIDO
 async function addGrua(){
   if(!isAdmin)return;
-  const id=document.getElementById('g-id').value.trim();
+  const id = document.getElementById('g-id').value.trim();
   if(!id)return toast('El ID es requerido',true);
   if(gruas.find(g=>g.id===id))return toast('Ya existe una grua con ese ID',true);
-  const fotoEl=document.getElementById('g-foto-img');
-  const foto=document.getElementById('g-foto-preview').style.display==='block'?fotoEl.src:null;
-  const row={id,tipo:document.getElementById('g-tipo').value,chofer:document.getElementById('g-chofer').value.trim(),rend:parseFloat(document.getElementById('g-rend').value)||null,tank:parseFloat(document.getElementById('g-tank').value)||null,placa:document.getElementById('g-placa').value.trim(),serie:document.getElementById('g-serie').value.trim(),modelo:document.getElementById('g-modelo').value.trim(),foto};
-  const{error}=await sb.from('gruas').insert([row]);
-  if(error)return toast('Error: '+error.message,true);
+  
+  const fotoEl = document.getElementById('g-foto-img');
+  const foto = document.getElementById('g-foto-preview').style.display==='block'?fotoEl.src:null;
+  
+  // Capturamos los valores limpiando espacios
+  const placaVal = document.getElementById('g-placa').value.trim();
+  const serieVal = document.getElementById('g-serie').value.trim();
+  const modeloVal = document.getElementById('g-modelo').value.trim();
+  const choferVal = document.getElementById('g-chofer').value.trim();
+
+  // Enviamos 'null' si el campo está vacío para que Supabase no genere conflicto de tipos o restricciones
+  const row = {
+    id,
+    tipo: document.getElementById('g-tipo').value,
+    chofer: choferVal || null,
+    rend: parseFloat(document.getElementById('g-rend').value) || null,
+    tank: parseFloat(document.getElementById('g-tank').value) || null,
+    placa: placaVal || null,
+    serie: serieVal || null,
+    modelo: modeloVal || null,
+    foto
+  };
+
+  const {error} = await sb.from('gruas').insert([row]);
+  if(error) return toast('Error: ' + error.message, true);
+  
+  // Limpieza de campos del formulario
   ['g-id','g-rend','g-tank','g-placa','g-serie','g-modelo','g-chofer'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('g-foto-preview').style.display='none';document.getElementById('g-foto-input').value='';
-  await loadAll();renderGruas();toast('Grua guardada correctamente');
+  document.getElementById('g-foto-preview').style.display='none';
+  document.getElementById('g-foto-input').value='';
+  
+  await loadAll();
+  renderGruas();
+  toast('Grua guardada correctamente');
 }
+
 async function deleteGrua(id){
   if(!isAdmin)return;if(!confirm('Eliminar grua '+id+'? Se borraran todas sus recargas y servicios.'))return;
   await sb.from('gruas').delete().eq('id',id);await loadAll();renderAll();toast('Grua eliminada');
@@ -515,7 +550,7 @@ function renderGruas(){
     const totalL=recargas.filter(r=>r.grua===g.id).reduce((a,r)=>a+r.litros,0);
     const km=rendFinal?Math.round(totalL*rendFinal):null;
     const fotoCell=g.foto?`<img src="${g.foto}" class="grua-foto" onclick="openLightbox('${g.foto}')">`:'<div class="grua-foto-placeholder">&#x1F69B;</div>';
-    const delBtn=isAdmin?`<td><button class="btn btn-danger" onclick="deleteGrua('${g.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+    const delBtn=isAdmin?`<td style="display:flex;gap:4px"><button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditModal('${g.id}')">&#x270F;</button><button class="btn btn-danger" onclick="deleteGrua('${g.id}')">&#x1F5D1;</button></td>`:'<td></td>';
     return`<tr><td>${fotoCell}</td><td><span class="grua-chip">${g.id}</span></td><td>${g.tipo}</td><td>${g.chofer||'&#8212;'}</td><td class="mono">${g.placa||'&#8212;'}</td><td class="mono">${g.serie||'&#8212;'}</td><td>${g.modelo||'&#8212;'}</td><td>${rendLabel}</td><td>${g.tank?g.tank+' L':'&#8212;'}</td><td>${km!==null?`<span class="badge badge-green">${fmtN(km)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td>${delBtn}</tr>`;
   }).join('');
 }
@@ -677,7 +712,111 @@ async function renderUsuarios(){
   el.innerHTML=data.map(u=>`<div class="usuario-card"><div class="usuario-info"><div class="nombre">${u.nombre}</div><div class="user">@${u.username} &nbsp;<span class="badge ${u.rol==='admin'?'badge-amber':'badge-navy'}">${u.rol}</span></div></div>${isAdmin&&u.username!=='Fatima'?`<button class="btn btn-danger" onclick="deleteUsuario('${u.id}')">&#x1F5D1;</button>`:''}</div>`).join('');
 }
 
+
+// EDICION DE GRUA
+function openEditModal(id) {
+  if(!isAdmin) return;
+  const g = gruas.find(x => x.id === id);
+  if(!g) return;
+  document.getElementById('edit-g-id-original').value = g.id;
+  document.getElementById('edit-g-id').value = g.id;
+  document.getElementById('edit-g-tipo').value = g.tipo || 'Plataforma';
+  document.getElementById('edit-g-chofer').value = g.chofer || '';
+  document.getElementById('edit-g-rend').value = g.rend || '';
+  document.getElementById('edit-g-tank').value = g.tank || '';
+  document.getElementById('edit-g-placa').value = g.placa || '';
+  document.getElementById('edit-g-serie').value = g.serie || '';
+  document.getElementById('edit-g-modelo').value = g.modelo || '';
+  // foto actual
+  const fotoCurrent = document.getElementById('edit-foto-current');
+  if(g.foto) {
+    fotoCurrent.innerHTML = '<img src="'+g.foto+'" style="width:80px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox(this.src)"/> <span style="font-size:12px;color:var(--text-3);display:block;margin-top:4px">Foto actual (sube una nueva para reemplazar)</span>';
+  } else {
+    fotoCurrent.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin foto actual</span>';
+  }
+  document.getElementById('edit-foto-preview').style.display = 'none';
+  document.getElementById('edit-g-foto-input').value = '';
+  document.getElementById('modal-edit-grua').classList.add('open');
+}
+function closeEditModal(e) {
+  if(e && e.target !== document.getElementById('modal-edit-grua')) return;
+  document.getElementById('modal-edit-grua').classList.remove('open');
+}
+function previewEditFoto(input) {
+  if(!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById('edit-foto-img').src = e.target.result;
+    document.getElementById('edit-foto-preview').style.display = 'block';
+  };
+  r.readAsDataURL(input.files[0]);
+}
+async function saveEditGrua() {
+  if(!isAdmin) return;
+  const originalId = document.getElementById('edit-g-id-original').value;
+  const newId = document.getElementById('edit-g-id').value.trim();
+  if(!newId) return toast('El ID es requerido', true);
+  if(newId !== originalId && gruas.find(g => g.id === newId)) return toast('Ya existe una grua con ese ID', true);
+
+  // foto: nueva si subieron, si no la existente
+  let foto = gruas.find(g => g.id === originalId)?.foto || null;
+  const editFotoPreview = document.getElementById('edit-foto-preview');
+  if(editFotoPreview.style.display !== 'none') {
+    foto = document.getElementById('edit-foto-img').src;
+  }
+
+  const updates = {
+    id: newId,
+    tipo: document.getElementById('edit-g-tipo').value,
+    chofer: document.getElementById('edit-g-chofer').value.trim() || null,
+    rend: parseFloat(document.getElementById('edit-g-rend').value) || null,
+    tank: parseFloat(document.getElementById('edit-g-tank').value) || null,
+    placa: document.getElementById('edit-g-placa').value.trim() || null,
+    serie: document.getElementById('edit-g-serie').value.trim() || null,
+    modelo: document.getElementById('edit-g-modelo').value.trim() || null,
+    foto
+  };
+
+  const { error } = await sb.from('gruas').update(updates).eq('id', originalId);
+  if(error) return toast('Error al guardar: ' + error.message, true);
+  document.getElementById('modal-edit-grua').classList.remove('open');
+  await loadAll();
+  renderGruas();
+  toast('Grua actualizada correctamente');
+}
+
 function renderAll(){renderGruas();renderGas();renderMant()}
 </script>
+
+<!-- MODAL EDICION GRUA -->
+<div class="modal-overlay" id="modal-edit-grua" onclick="closeEditModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">&#x270F;&#xFE0F; Editar grua</div>
+      <button class="modal-close" onclick="closeEditModal()">&#x2715;</button>
+    </div>
+    <input type="hidden" id="edit-g-id-original"/>
+    <div class="form-grid">
+      <div class="form-group"><label>ID / Nombre *</label><input id="edit-g-id" type="text"/></div>
+      <div class="form-group"><label>Tipo de grua</label><select id="edit-g-tipo"><option>Plataforma</option><option>Grua de arrastre</option><option>Grua de carga</option><option>Grua articulada</option><option>Grua hidraulica</option><option>Otro</option></select></div>
+      <div class="form-group"><label>Nombre del chofer</label><input id="edit-g-chofer" type="text" placeholder="Ej. Juan Perez"/></div>
+      <div class="form-group"><label>Rendimiento (km/L)</label><input id="edit-g-rend" type="number" min="0" step="0.1"/></div>
+      <div class="form-group"><label>Capacidad tanque (L)</label><input id="edit-g-tank" type="number" min="0"/></div>
+      <div class="form-group"><label>Placa / Num. economico</label><input id="edit-g-placa" type="text"/></div>
+      <div class="form-group"><label>Numero de serie</label><input id="edit-g-serie" type="text"/></div>
+      <div class="form-group"><label>Marca / Modelo</label><input id="edit-g-modelo" type="text"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">Foto de la grua</label>
+      <div id="edit-foto-current" style="margin-bottom:8px"></div>
+      <input id="edit-g-foto-input" type="file" accept="image/*" onchange="previewEditFoto(this)"/>
+      <div id="edit-foto-preview" style="margin-top:8px;display:none"><img id="edit-foto-img" src="" style="width:130px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveEditGrua()">&#x2713; Guardar cambios</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
