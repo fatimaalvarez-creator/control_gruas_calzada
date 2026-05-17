@@ -820,11 +820,27 @@ function autoFillEditMantChofer(){
   const g=gruas.find(x=>x.id===document.getElementById('edit-mant-grua').value);
   if(g)document.getElementById('edit-mant-chofer').value=g.chofer||'';
 }
+let editMantFotosTemp = [];
+
+function previewEditMantFotos(input) {
+  const container = document.getElementById('edit-mant-fotos-preview');
+  Array.from(input.files).forEach(async file => {
+    const b64 = await fileToBase64(file);
+    editMantFotosTemp.push(b64);
+    const idx = editMantFotosTemp.length - 1;
+    const wrap = document.createElement('div'); wrap.className = 'img-preview-wrap';
+    const img = document.createElement('img'); img.src = b64; img.className = 'img-preview'; img.onclick = () => openLightbox(b64);
+    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.textContent = 'x';
+    btn.onclick = () => { editMantFotosTemp[idx] = null; wrap.remove(); };
+    wrap.appendChild(img); wrap.appendChild(btn); container.appendChild(wrap);
+  });
+  input.value = '';
+}
+
 function openEditMantModal(id){
   if(!isAdmin)return;
   const m=mantenimientos.find(x=>x.id===id);if(!m)return;
   document.getElementById('edit-mant-id').value=m.id;
-  // fill grua select
   const sg=document.getElementById('edit-mant-grua');
   sg.innerHTML=gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');
   sg.value=m.grua;
@@ -836,6 +852,20 @@ function openEditMantModal(id){
   document.getElementById('edit-mant-prox').value=m.prox||'';
   document.getElementById('edit-mant-taller').value=m.taller||'';
   document.getElementById('edit-mant-obs').value=m.obs||'';
+  // reset foto temp and preview
+  editMantFotosTemp = [];
+  document.getElementById('edit-mant-fotos-preview').innerHTML = '';
+  document.getElementById('edit-mant-fotos-input').value = '';
+  // show existing fotos
+  const fotoCurrent = document.getElementById('edit-mant-fotos-current');
+  const existingFotos = m.fotos || [];
+  if(existingFotos.length) {
+    fotoCurrent.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">' +
+      existingFotos.map(f => `<img src="${f}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${f}')"/>`).join('') +
+      '</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (las nuevas que subas se agregaran)</span>';
+  } else {
+    fotoCurrent.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin fotos actuales</span>';
+  }
   document.getElementById('modal-edit-mant').classList.add('open');
 }
 function closeEditMantModal(e){
@@ -858,12 +888,18 @@ async function saveEditMant(){
     taller:document.getElementById('edit-mant-taller').value.trim(),
     obs:document.getElementById('edit-mant-obs').value.trim()
   };
+  // merge existing fotos with new ones
+  const existingM = mantenimientos.find(m=>m.id===id);
+  const existingFotas = existingM?.fotos || [];
+  const newFotas = editMantFotosTemp.filter(Boolean);
+  updates.fotos = [...existingFotas, ...newFotas];
+
   const{data,error}=await sb.from('mantenimientos').update(updates).eq('id',id).select();
   console.log('mant update result:', data, error);
   if(error)return toast('Error: '+error.message,true);
-  // update local array immediately so UI reflects change right away
   const idx2=mantenimientos.findIndex(m=>m.id===id);
   if(idx2!==-1) mantenimientos[idx2]={...mantenimientos[idx2],...updates};
+  editMantFotosTemp=[];
   document.getElementById('modal-edit-mant').classList.remove('open');
   renderAll();
   await loadAll();
@@ -932,6 +968,12 @@ function renderAll(){renderGruas();renderGas();renderMant()}
       <div class="form-group"><label>Proximo servicio</label><input id="edit-mant-prox" type="text" placeholder="Ej. 25000 km"/></div>
       <div class="form-group"><label>Taller / Tecnico</label><input id="edit-mant-taller" type="text"/></div>
       <div class="form-group full"><label>Observaciones</label><input id="edit-mant-obs" type="text"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Fotos del servicio</label>
+      <div id="edit-mant-fotos-current" style="margin-bottom:8px"></div>
+      <input id="edit-mant-fotos-input" type="file" accept="image/*" multiple onchange="previewEditMantFotos(this)"/>
+      <div class="img-preview-grid" id="edit-mant-fotos-preview"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEditMantModal()">Cancelar</button>
