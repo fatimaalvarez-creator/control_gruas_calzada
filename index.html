@@ -244,6 +244,12 @@ tbody tr:hover td{background:var(--surface-2)}
 <div class="section" id="sec-gasolina">
   <div class="section-header"><div><h2>Control de Gasolina</h2><p>Recargas, costos y rendimiento automatico</p></div></div>
   <div class="stats-grid" id="gas-stats"></div>
+  <div class="subnav">
+    <button class="subnav-btn active" onclick="showGasSub('registro',this)">&#x2795; Registrar recarga</button>
+    <button class="subnav-btn" onclick="showGasSub('diario',this)">&#x1F4C5; Historial del dia</button>
+    <button class="subnav-btn" onclick="showGasSub('completo',this)">&#x1F4CB; Historial completo</button>
+  </div>
+  <div id="gas-sub-registro">
   <div class="card">
     <div class="card-title">&#x2795; Registrar recarga</div>
     <div class="form-grid">
@@ -260,8 +266,16 @@ tbody tr:hover td{background:var(--surface-2)}
     <div class="form-group" style="margin-bottom:16px"><label>&#x1F4F8; Fotos del ticket</label><input type="file" id="gas-fotos-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewFotos('gas-fotos-input','gas-fotos-preview','gasFotosTemp')"/><div class="img-preview-grid" id="gas-fotos-preview"></div></div>
     <button class="btn btn-accent" onclick="addRecarga()">&#x2713; Guardar recarga</button>
   </div>
+  </div><!-- end gas-sub-registro -->
+  <div id="gas-sub-diario" style="display:none">
+    <div class="card">
+      <div class="card-title">&#x1F4C5; Recargas de hoy</div>
+      <div id="gas-diario-content"></div>
+    </div>
+  </div>
+  <div id="gas-sub-completo" style="display:none">
   <div class="card">
-    <div class="card-title">&#x1F550; Historial de recargas</div>
+    <div class="card-title">&#x1F4CB; Historial completo de recargas</div>
     <div class="filters">
       <select id="gas-filter-grua" onchange="renderGas()"><option value="">Todas las gruas</option></select>
       <select id="gas-filter-mes" onchange="renderGas()"><option value="">Todos los meses</option></select>
@@ -273,12 +287,19 @@ tbody tr:hover td{background:var(--surface-2)}
       <tbody id="gas-table"><tr><td colspan="12" class="empty">Sin recargas.</td></tr></tbody>
     </table></div>
   </div>
+  </div><!-- end gas-sub-completo -->
 </div>
 
 <!-- MANTENIMIENTO -->
 <div class="section" id="sec-mantenimiento">
   <div class="section-header"><div><h2>Mantenimiento</h2><p>Servicios y seguimiento por unidad</p></div></div>
   <div class="stats-grid" id="mant-stats"></div>
+  <div class="subnav">
+    <button class="subnav-btn active" onclick="showMantSub('registro',this)">&#x2795; Registrar servicio</button>
+    <button class="subnav-btn" onclick="showMantSub('diario',this)">&#x1F4C5; Historial del dia</button>
+    <button class="subnav-btn" onclick="showMantSub('completo',this)">&#x1F4CB; Historial completo</button>
+  </div>
+  <div id="mant-sub-registro">
   <div class="card">
     <div class="card-title">&#x2795; Registrar servicio</div>
     <div class="form-grid">
@@ -295,8 +316,16 @@ tbody tr:hover td{background:var(--surface-2)}
     <div class="form-group" style="margin-bottom:16px"><label>&#x1F4F8; Fotos del servicio</label><input type="file" id="mant-fotos-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewFotos('mant-fotos-input','mant-fotos-preview','mantFotosTemp')"/><div class="img-preview-grid" id="mant-fotos-preview"></div></div>
     <button class="btn btn-accent" onclick="addMant()">&#x2713; Guardar servicio</button>
   </div>
+  </div><!-- end mant-sub-registro -->
+  <div id="mant-sub-diario" style="display:none">
+    <div class="card">
+      <div class="card-title">&#x1F4C5; Servicios de hoy</div>
+      <div id="mant-diario-content"></div>
+    </div>
+  </div>
+  <div id="mant-sub-completo" style="display:none">
   <div class="card">
-    <div class="card-title">&#x1F4CB; Historial de mantenimiento</div>
+    <div class="card-title">&#x1F4CB; Historial completo de mantenimiento</div>
     <div class="filters">
       <select id="mant-filter-grua" onchange="renderMant()"><option value="">Todas las gruas</option></select>
       <select id="mant-filter-tipo" onchange="renderMant()"><option value="">Todos los servicios</option><option>Cambio de aceite</option><option>Servicio electrico</option><option>Cambio de llantas</option><option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option><option>Frenos</option><option>Suspension</option><option>Transmision</option><option>Radiador / Refrigeracion</option><option>Revision general</option><option>Afinacion</option><option>Bateria</option><option>Lamineria y Pintura</option><option>Sistema Hidraulico</option><option>Tapiceria</option><option>Embrague</option><option>Otro</option></select>
@@ -306,6 +335,7 @@ tbody tr:hover td{background:var(--surface-2)}
       <tbody id="mant-table"><tr><td colspan="11" class="empty">Sin servicios.</td></tr></tbody>
     </table></div>
   </div>
+  </div><!-- end mant-sub-completo -->
 </div>
 
 <!-- RESUMEN -->
@@ -684,7 +714,15 @@ async function deleteRecarga(id){
 }
 function renderGas(){
   const totalL=recargas.reduce((a,r)=>a+(r.litros||0),0);const totalC=recargas.reduce((a,r)=>a+(r.costo||0),0);
-  document.getElementById('gas-stats').innerHTML=`<div class="stat accent"><div class="stat-label">Total recargas</div><div class="stat-value">${recargas.length}</div></div><div class="stat green"><div class="stat-label">Litros cargados</div><div class="stat-value">${fmtN(Math.round(totalL))}</div><div class="stat-sub">litros en total</div></div><div class="stat red"><div class="stat-label">Gasto combustible</div><div class="stat-value">${fmtM(totalC)}</div></div>`;
+  const hoy=todayStr();
+  const recHoy=recargas.filter(r=>r.fecha===hoy);
+  const litrosHoy=recHoy.reduce((a,r)=>a+(r.litros||0),0);
+  const costoHoy=recHoy.reduce((a,r)=>a+(r.costo||0),0);
+  document.getElementById('gas-stats').innerHTML=`
+    <div class="stat accent"><div class="stat-label">&#x1F4C5; Recargas hoy</div><div class="stat-value">${recHoy.length}</div><div class="stat-sub">${new Date().toLocaleDateString('es-MX',{weekday:'long'})}</div></div>
+    <div class="stat green"><div class="stat-label">&#x26FD; Litros hoy</div><div class="stat-value">${fmtN(Math.round(litrosHoy))}</div><div class="stat-sub">de ${fmtN(Math.round(totalL))} L totales</div></div>
+    <div class="stat red"><div class="stat-label">&#x1F4B0; Gasto hoy</div><div class="stat-value">${fmtM(costoHoy)}</div><div class="stat-sub">Total: ${fmtM(totalC)}</div></div>
+    <div class="stat"><div class="stat-label">Total recargas</div><div class="stat-value">${recargas.length}</div><div class="stat-sub">historico</div></div>`;
   const sg=document.getElementById('gas-grua');const sv=sg.value;sg.innerHTML='<option value="">Selecciona</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');sg.value=sv;
   const fg=document.getElementById('gas-filter-grua');const fgv=fg.value;fg.innerHTML='<option value="">Todas las gruas</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}</option>`).join('');fg.value=fgv;
   const meses=[...new Set(recargas.map(r=>r.fecha?r.fecha.substring(0,7):'')).values()].filter(Boolean).sort().reverse();
@@ -720,7 +758,14 @@ async function deleteMant(id){
 }
 function renderMant(){
   const totalC=mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
-  document.getElementById('mant-stats').innerHTML=`<div class="stat accent"><div class="stat-label">Servicios registrados</div><div class="stat-value">${mantenimientos.length}</div></div><div class="stat green"><div class="stat-label">Con proximo servicio</div><div class="stat-value">${mantenimientos.filter(m=>m.prox).length}</div></div><div class="stat red"><div class="stat-label">Gasto mantenimiento</div><div class="stat-value">${fmtM(totalC)}</div></div>`;
+  const hoyM=todayStr();
+  const mantHoy=mantenimientos.filter(m=>m.fecha===hoyM);
+  const costoHoyM=mantHoy.reduce((a,m)=>a+(m.costo||0),0);
+  document.getElementById('mant-stats').innerHTML=`
+    <div class="stat accent"><div class="stat-label">&#x1F4C5; Servicios hoy</div><div class="stat-value">${mantHoy.length}</div><div class="stat-sub">${new Date().toLocaleDateString('es-MX',{weekday:'long'})}</div></div>
+    <div class="stat red"><div class="stat-label">&#x1F4B0; Gasto hoy</div><div class="stat-value">${fmtM(costoHoyM)}</div><div class="stat-sub">Total: ${fmtM(totalC)}</div></div>
+    <div class="stat green"><div class="stat-label">Con proximo servicio</div><div class="stat-value">${mantenimientos.filter(m=>m.prox).length}</div></div>
+    <div class="stat"><div class="stat-label">Total servicios</div><div class="stat-value">${mantenimientos.length}</div><div class="stat-sub">historico</div></div>`;
   const sm=document.getElementById('mant-grua');const sv=sm.value;sm.innerHTML='<option value="">Selecciona</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');sm.value=sv;
   const fg=document.getElementById('mant-filter-grua');const fgv=fg.value;fg.innerHTML='<option value="">Todas las gruas</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}</option>`).join('');fg.value=fgv;
   const ft=document.getElementById('mant-filter-tipo').value;
@@ -1140,6 +1185,72 @@ function removeExistingRecFoto(idx){
   } else {
     fotoCurrent.innerHTML='<span style="font-size:12px;color:var(--text-3)">Sin archivos actuales</span>';
   }
+}
+
+
+// GAS / MANT SUBNAV
+function showGasSub(sub, btn){
+  ['registro','diario','completo'].forEach(s=>{
+    document.getElementById('gas-sub-'+s).style.display=s===sub?'block':'none';
+  });
+  document.querySelectorAll('#sec-gasolina .subnav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  if(sub==='diario')renderGasDiario();
+  if(sub==='completo')renderGas();
+}
+function showMantSub(sub, btn){
+  ['registro','diario','completo'].forEach(s=>{
+    document.getElementById('mant-sub-'+s).style.display=s===sub?'block':'none';
+  });
+  document.querySelectorAll('#sec-mantenimiento .subnav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  if(sub==='diario')renderMantDiario();
+  if(sub==='completo')renderMant();
+}
+
+function renderGasDiario(){
+  const hoy=todayStr();
+  const el=document.getElementById('gas-diario-content');
+  const list=recargas.filter(r=>r.fecha===hoy);
+  if(!list.length){
+    el.innerHTML='<p class="empty">No hay recargas registradas hoy ('+fmtD(hoy)+').</p>';
+    return;
+  }
+  const totalL=list.reduce((a,r)=>a+(r.litros||0),0);
+  const totalC=list.reduce((a,r)=>a+(r.costo||0),0);
+  el.innerHTML=`
+    <div class="stats-grid" style="margin-bottom:1rem">
+      <div class="stat green"><div class="stat-label">Recargas</div><div class="stat-value">${list.length}</div></div>
+      <div class="stat accent"><div class="stat-label">Litros totales</div><div class="stat-value">${fmtN(Math.round(totalL))} L</div></div>
+      <div class="stat red"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(totalC)}</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Grua</th><th>Litros</th><th>Costo</th><th>Precio/L</th><th>Odometro</th><th>Km recorridos</th><th>Estacion</th><th>Fotos</th></tr></thead>
+      <tbody>${list.map(r=>{
+        const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
+        return`<tr><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'—'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'—'}</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'—'}</td><td class="truncate">${r.notas||'—'}</td><td>${renderFotosThumb(r.fotos)}</td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+function renderMantDiario(){
+  const hoy=todayStr();
+  const el=document.getElementById('mant-diario-content');
+  const list=mantenimientos.filter(m=>m.fecha===hoy);
+  if(!list.length){
+    el.innerHTML='<p class="empty">No hay servicios registrados hoy ('+fmtD(hoy)+').</p>';
+    return;
+  }
+  const totalC=list.reduce((a,m)=>a+(m.costo||0),0);
+  el.innerHTML=`
+    <div class="stats-grid" style="margin-bottom:1rem">
+      <div class="stat green"><div class="stat-label">Servicios</div><div class="stat-value">${list.length}</div></div>
+      <div class="stat red"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(totalC)}</div></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Grua</th><th>Chofer</th><th>Servicio</th><th>Km</th><th>Costo</th><th>Proximo</th><th>Taller</th><th>Observaciones</th><th>Fotos</th></tr></thead>
+      <tbody>${list.map(m=>`<tr><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'—'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'—'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'—'}</td><td class="truncate">${m.taller||'—'}</td><td class="truncate">${m.obs||'—'}</td><td>${renderFotosThumb(m.fotos)}</td></tr>`).join('')}</tbody>
+    </table></div>`;
 }
 
 function renderAll(){renderGruas();renderGas();renderMant()}
