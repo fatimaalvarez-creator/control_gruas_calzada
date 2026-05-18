@@ -710,7 +710,9 @@ async function addRecarga(){
 }
 async function deleteRecarga(id){
   if(!isAdmin)return;if(!confirm('Eliminar esta recarga?'))return;
-  await sb.from('recargas').delete().eq('id',id);await loadAll();renderGas();toast('Recarga eliminada');
+  await sb.from('recargas').delete().eq('id',id);await loadAll();renderGas();
+  if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  toast('Recarga eliminada');
 }
 function renderGas(){
   const totalL=recargas.reduce((a,r)=>a+(r.litros||0),0);const totalC=recargas.reduce((a,r)=>a+(r.costo||0),0);
@@ -754,7 +756,9 @@ async function addMant(){
 }
 async function deleteMant(id){
   if(!isAdmin)return;if(!confirm('Eliminar este servicio?'))return;
-  await sb.from('mantenimientos').delete().eq('id',id);await loadAll();renderMant();toast('Servicio eliminado');
+  await sb.from('mantenimientos').delete().eq('id',id);await loadAll();renderMant();
+  if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
+  toast('Servicio eliminado');
 }
 function renderMant(){
   const totalC=mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
@@ -1024,6 +1028,7 @@ async function saveEditMant(){
   renderAll();
   await loadAll();
   renderAll();
+  if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio actualizado correctamente');
 }
 
@@ -1139,6 +1144,7 @@ async function saveEditRecarga(){
   renderAll();
   await loadAll();
   renderAll();
+  if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga actualizada correctamente');
 }
 
@@ -1225,10 +1231,11 @@ function renderGasDiario(){
       <div class="stat red"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(totalC)}</div></div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Grua</th><th>Litros</th><th>Costo</th><th>Precio/L</th><th>Odometro</th><th>Km recorridos</th><th>Estacion</th><th>Fotos</th></tr></thead>
+      <thead><tr><th>Grua</th><th>Litros</th><th>Costo</th><th>Precio/L</th><th>Odometro</th><th>Km recorridos</th><th>Estacion</th><th>Fotos</th><th></th></tr></thead>
       <tbody>${list.map(r=>{
         const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
-        return`<tr><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'—'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'—'}</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'—'}</td><td class="truncate">${r.notas||'—'}</td><td>${renderFotosThumb(r.fotos)}</td></tr>`;
+        const acciones=isAdmin?`<td style="display:flex;gap:4px"><button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button><button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+        return`<tr><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'—'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'—'}</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'—'}</td><td class="truncate">${r.notas||'—'}</td><td>${renderFotosThumb(r.fotos)}</td>${acciones}</tr>`;
       }).join('')}</tbody>
     </table></div>`;
 }
@@ -1248,8 +1255,11 @@ function renderMantDiario(){
       <div class="stat red"><div class="stat-label">Gasto total</div><div class="stat-value">${fmtM(totalC)}</div></div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Grua</th><th>Chofer</th><th>Servicio</th><th>Km</th><th>Costo</th><th>Proximo</th><th>Taller</th><th>Observaciones</th><th>Fotos</th></tr></thead>
-      <tbody>${list.map(m=>`<tr><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'—'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'—'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'—'}</td><td class="truncate">${m.taller||'—'}</td><td class="truncate">${m.obs||'—'}</td><td>${renderFotosThumb(m.fotos)}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Grua</th><th>Chofer</th><th>Servicio</th><th>Km</th><th>Costo</th><th>Proximo</th><th>Taller</th><th>Observaciones</th><th>Fotos</th><th></th></tr></thead>
+      <tbody>${list.map(m=>{
+        const acciones=isAdmin?`<td style="display:flex;gap:4px"><button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditMantModal('${m.id}')">&#x270F;</button><button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+        return`<tr><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'—'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'—'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'—'}</td><td class="truncate">${m.taller||'—'}</td><td class="truncate">${m.obs||'—'}</td><td>${renderFotosThumb(m.fotos)}</td>${acciones}</tr>`;
+      }).join('')}</tbody>
     </table></div>`;
 }
 
