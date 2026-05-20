@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Control de Gruas La Calzada</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--navy:#0a1628;--navy-mid:#142240;--navy-light:#1e3360;--accent:#f59e0b;--surface:#fff;--surface-2:#f8fafc;--surface-3:#f1f5f9;--border:#e2e8f0;--border-strong:#cbd5e1;--text:#0f172a;--text-2:#475569;--text-3:#94a3b8;--green:#16a34a;--green-bg:#f0fdf4;--red:#dc2626;--red-bg:#fef2f2;--amber:#d97706;--amber-bg:#fffbeb;--radius:10px;--radius-lg:14px;--shadow:0 1px 3px rgba(0,0,0,0.08)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -522,22 +522,36 @@ async function initApp(){
   await loadAll();
   renderAll();
   initFluidos();
-  // Auto-refresh every 60 seconds
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
+  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
 }
 
 // LOAD DATA
+let _isLoading = false;
 async function loadAll(){
-  const[g,r,m,p]=await Promise.all([
-    sb.from('gruas').select('*').order('id'),
-    sb.from('recargas').select('*').order('created_at',{ascending:false}),
-    sb.from('mantenimientos').select('*').order('created_at',{ascending:false}),
-    sb.from('papeleria').select('*')
-  ]);
-  gruas=g.data||[];recargas=r.data||[];mantenimientos=m.data||[];
-  papeleria={};
-  (p.data||[]).forEach(x=>{if(!papeleria[x.grua])papeleria[x.grua]={};papeleria[x.grua][x.tipo]=x.fotos||[]});
-  updateSelects();
+  if(_isLoading) return;
+  _isLoading = true;
+  try {
+    const[g,r,m,p]=await Promise.all([
+      sb.from('gruas').select('*').order('id'),
+      sb.from('recargas').select('*').order('created_at',{ascending:false}),
+      sb.from('mantenimientos').select('*').order('created_at',{ascending:false}),
+      sb.from('papeleria').select('*')
+    ]);
+    if(g.error) console.error('gruas error:',g.error);
+    if(r.error) console.error('recargas error:',r.error);
+    if(m.error) console.error('mant error:',m.error);
+    if(p.error) console.error('papeleria error:',p.error);
+    gruas=g.data||[];recargas=r.data||[];mantenimientos=m.data||[];
+    papeleria={};
+    (p.data||[]).forEach(x=>{if(!papeleria[x.grua])papeleria[x.grua]={};papeleria[x.grua][x.tipo]=x.fotos||[]});
+    updateSelects();
+  } catch(e) {
+    console.error('loadAll exception:',e);
+    toast('Error cargando datos: '+e.message, true);
+  } finally {
+    _isLoading = false;
+  }
 }
 
 function updateSelects(){
@@ -1125,8 +1139,8 @@ async function saveEditGrua() {
   await loadAll();
   renderAll();
   initFluidos();
-  // Auto-refresh every 60 seconds
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
+  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   toast('Grua actualizada correctamente');
 }
 
@@ -1236,8 +1250,8 @@ async function saveEditMant(){
   await loadAll();
   renderAll();
   initFluidos();
-  // Auto-refresh every 60 seconds
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
+  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio actualizado correctamente');
 }
@@ -1355,8 +1369,8 @@ async function saveEditRecarga(){
   await loadAll();
   renderAll();
   initFluidos();
-  // Auto-refresh every 60 seconds
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
+  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga actualizada correctamente');
 }
@@ -1490,7 +1504,7 @@ let fluidosActivos = {};
 function initFluidos(){
   const togglesEl = document.getElementById('fluidos-toggles');
   const formsEl = document.getElementById('fluidos-forms');
-  if(!togglesEl) return;
+  if(!togglesEl || !formsEl) return;
   togglesEl.innerHTML = FLUIDOS_TIPOS.map(f=>`
     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;user-select:none;min-width:180px">
       <span style="font-size:18px">${f.icon}</span>
@@ -1855,13 +1869,17 @@ function removeEditGruaExtraFoto(idx){
 
 
 async function refreshData(){
+  if(_isLoading) { toast('Cargando, espera...'); return; }
   const icon = document.getElementById('refresh-icon');
   if(icon) { icon.style.transition='transform 0.6s'; icon.style.transform='rotate(360deg)'; }
   try {
     await loadAll();
     renderAll();
-    if(document.getElementById('gas-sub-diario') && document.getElementById('gas-sub-diario').style.display!=='none') renderGasDiario();
-    if(document.getElementById('mant-sub-diario') && document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
+    initFluidos();
+    const gsd = document.getElementById('gas-sub-diario');
+    const msd = document.getElementById('mant-sub-diario');
+    if(gsd && gsd.style.display!=='none') renderGasDiario();
+    if(msd && msd.style.display!=='none') renderMantDiario();
     toast('Datos actualizados');
   } catch(e) {
     console.error('refresh error:', e);
