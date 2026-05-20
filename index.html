@@ -186,7 +186,8 @@ tbody tr:hover td{background:var(--surface-2)}
   <div class="section-header"><div><h2>Flota de Gruas</h2><p>Unidades, choferes y documentacion</p></div></div>
   <div class="subnav">
     <button class="subnav-btn active" onclick="showSub('gruas','lista',this)">&#x1F69B; Registro de Gruas</button>
-    <button class="subnav-btn" onclick="showSub('gruas','papeleria',this)">&#x1F4C4; Papeleria</button>
+    <button class="subnav-btn" onclick="showSub('gruas','papeleria',this)">&#x1F4C4; Papeleria Gruas</button>
+    <button class="subnav-btn" onclick="showSub('gruas','operadores',this)">&#x1F464; Papeleria Operadores</button>
   </div>
   <div class="subsection active" id="sub-gruas-lista">
     <div class="stats-grid" id="gruas-stats"></div>
@@ -238,6 +239,31 @@ tbody tr:hover td{background:var(--surface-2)}
       <div id="papel-content"><p class="empty">Selecciona una grua.</p></div>
     </div>
   </div>
+  <!-- SUBSECCION PAPELERIA OPERADORES -->
+  <div class="subsection" id="sub-gruas-operadores">
+    <div class="card">
+      <div class="card-title">&#x2795; Registrar documentos de operador</div>
+      <div class="form-grid" style="margin-bottom:18px">
+        <div class="form-group">
+          <label>Operador / Chofer *</label>
+          <select id="op-reg-nombre" onchange="renderOpUpload()">
+            <option value="">Selecciona un operador</option>
+          </select>
+        </div>
+      </div>
+      <div id="op-upload-sections" style="display:none">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-bottom:18px" id="op-upload-grid"></div>
+        <button class="btn btn-accent" onclick="saveOpTemp()">&#x2713; Guardar documentos</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F4C4; Consultar documentos por operador</div>
+      <div class="filters">
+        <select id="op-filter-nombre" onchange="renderOpDocs()"><option value="">Selecciona un operador</option></select>
+      </div>
+      <div id="op-content"><p class="empty">Selecciona un operador para ver sus documentos.</p></div>
+    </div>
+  </div>
 </div>
 
 <!-- GASOLINA -->
@@ -265,6 +291,17 @@ tbody tr:hover td{background:var(--surface-2)}
     <div id="gas-rend-preview" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:var(--radius);font-size:13px;color:var(--green);font-weight:500"></div>
     <div class="form-group" style="margin-bottom:16px"><label>&#x1F4F8; Fotos del ticket</label><input type="file" id="gas-fotos-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewFotos('gas-fotos-input','gas-fotos-preview','gasFotosTemp')"/><div class="img-preview-grid" id="gas-fotos-preview"></div></div>
     <button class="btn btn-accent" onclick="addRecarga()">&#x2713; Guardar recarga</button>
+  </div>
+
+  <!-- FLUIDOS -->
+  <div class="card">
+    <div class="card-title">&#x1F9EA; Fluidos y consumibles</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Registra recargas de UREA, aceites y otros fluidos comprados en gasolinera.</p>
+    <div id="fluidos-toggles" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px"></div>
+    <div id="fluidos-forms"></div>
+    <div id="fluidos-save-btn" style="display:none;margin-top:8px">
+      <button class="btn btn-accent" onclick="saveFluidos()">&#x2713; Guardar fluidos</button>
+    </div>
   </div>
   </div><!-- end gas-sub-registro -->
   <div id="gas-sub-diario" style="display:none">
@@ -417,6 +454,7 @@ async function initApp(){
   document.getElementById('mant-fecha').value=todayStr();
   await loadAll();
   renderAll();
+  initFluidos();
 }
 
 // LOAD DATA
@@ -710,9 +748,12 @@ async function addRecarga(){
   const{error}=await sb.from('recargas').insert([{grua,fecha:document.getElementById('gas-fecha').value,litros,costo:parseFloat(document.getElementById('gas-costo').value)||0,pxl:parseFloat(document.getElementById('gas-pxl').value)||0,odo,km_rec:kmRec,notas:document.getElementById('gas-notas').value.trim(),fotos}]);
   if(error)return toast('Error al guardar: '+error.message,true);
   ['gas-litros','gas-costo','gas-pxl','gas-odo','gas-km-rec','gas-notas'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('gas-km-auto').textContent='';document.getElementById('gas-rend-preview').style.display='none';
   document.getElementById('gas-pxl-auto').textContent='';document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
-  await loadAll();renderGas();toast('Recarga guardada correctamente');
+  await loadAll();renderGas();
+  if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  toast('Recarga guardada correctamente');
 }
 async function deleteRecarga(id){
   if(!isAdmin)return;if(!confirm('Eliminar esta recarga?'))return;
@@ -757,8 +798,11 @@ async function addMant(){
   const{error}=await sb.from('mantenimientos').insert([{grua,chofer:document.getElementById('mant-chofer').value.trim(),tipo:document.getElementById('mant-tipo').value,fecha:document.getElementById('mant-fecha').value,costo:parseFloat(document.getElementById('mant-costo').value)||0,km:parseFloat(document.getElementById('mant-km').value)||null,prox:document.getElementById('mant-prox').value.trim(),taller:document.getElementById('mant-taller').value.trim(),obs:document.getElementById('mant-obs').value.trim(),fotos}]);
   if(error)return toast('Error: '+error.message,true);
   ['mant-costo','mant-km','mant-prox','mant-taller','mant-obs','mant-chofer'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('mant-fecha').value=todayStr();
   document.getElementById('mant-fotos-preview').innerHTML='';mantFotosTemp=[];
-  await loadAll();renderMant();toast('Servicio guardado correctamente');
+  await loadAll();renderMant();
+  if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
+  toast('Servicio guardado correctamente');
 }
 async function deleteMant(id){
   if(!isAdmin)return;if(!confirm('Eliminar este servicio?'))return;
@@ -926,6 +970,7 @@ async function saveEditGrua() {
   renderAll();
   await loadAll();
   renderAll();
+  initFluidos();
   toast('Grua actualizada correctamente');
 }
 
@@ -1034,6 +1079,7 @@ async function saveEditMant(){
   renderAll();
   await loadAll();
   renderAll();
+  initFluidos();
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio actualizado correctamente');
 }
@@ -1150,6 +1196,7 @@ async function saveEditRecarga(){
   renderAll();
   await loadAll();
   renderAll();
+  initFluidos();
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga actualizada correctamente');
 }
@@ -1269,7 +1316,220 @@ function renderMantDiario(){
     </table></div>`;
 }
 
-function renderAll(){renderGruas();renderGas();renderMant()}
+
+// ══ FLUIDOS ══
+const FLUIDOS_TIPOS = [
+  {key:'urea', label:'UREA', icon:'&#x1F9EA;'},
+  {key:'frenos', label:'Liquido de frenos', icon:'&#x1F6D1;'},
+  {key:'hidraulico', label:'Aceite hidraulico', icon:'&#x2699;&#xFE0F;'},
+  {key:'motor', label:'Aceite de motor', icon:'&#x1F6E2;&#xFE0F;'},
+  {key:'limpiaparabrisas', label:'Limpiaparabrisas', icon:'&#x1F4A7;'}
+];
+let fluidosActivos = {};
+
+function initFluidos(){
+  const togglesEl = document.getElementById('fluidos-toggles');
+  const formsEl = document.getElementById('fluidos-forms');
+  if(!togglesEl) return;
+  togglesEl.innerHTML = FLUIDOS_TIPOS.map(f=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;user-select:none;min-width:180px">
+      <span style="font-size:18px">${f.icon}</span>
+      <span style="font-size:13px;font-weight:500;flex:1">${f.label}</span>
+      <div onclick="toggleFluido('${f.key}')" id="toggle-${f.key}" style="width:44px;height:24px;border-radius:99px;background:var(--border-strong);position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0">
+        <div id="toggle-knob-${f.key}" style="width:20px;height:20px;border-radius:99px;background:#fff;position:absolute;top:2px;left:2px;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>
+      </div>
+    </label>`).join('');
+  formsEl.innerHTML = '';
+  fluidosActivos = {};
+  document.getElementById('fluidos-save-btn').style.display='none';
+}
+
+function toggleFluido(key){
+  fluidosActivos[key] = !fluidosActivos[key];
+  const track = document.getElementById('toggle-'+key);
+  const knob = document.getElementById('toggle-knob-'+key);
+  if(fluidosActivos[key]){
+    track.style.background='var(--green)';
+    knob.style.transform='translateX(20px)';
+  } else {
+    track.style.background='var(--border-strong)';
+    knob.style.transform='translateX(0)';
+  }
+  renderFluidosForms();
+}
+
+function renderFluidosForms(){
+  const formsEl = document.getElementById('fluidos-forms');
+  const activos = FLUIDOS_TIPOS.filter(f=>fluidosActivos[f.key]);
+  document.getElementById('fluidos-save-btn').style.display = activos.length?'block':'none';
+  if(!activos.length){ formsEl.innerHTML=''; return; }
+  formsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:12px;margin-top:12px">' +
+    activos.map(f=>`
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">${f.icon} ${f.label}</div>
+        <div class="form-group" style="margin-bottom:8px"><label>Grua *</label><select id="fl-grua-${f.key}">${gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('')}</select></div>
+        <div class="form-group" style="margin-bottom:8px"><label>Cantidad (L o unidad)</label><input id="fl-cant-${f.key}" type="number" min="0" step="0.1" placeholder="Ej. 5"/></div>
+        <div class="form-group"><label>Costo ($)</label><input id="fl-costo-${f.key}" type="number" min="0" step="0.01" placeholder="Opcional"/></div>
+      </div>`).join('') +
+    '</div>';
+}
+
+async function saveFluidos(){
+  const activos = FLUIDOS_TIPOS.filter(f=>fluidosActivos[f.key]);
+  if(!activos.length) return;
+  const fecha = todayStr();
+  let saved = 0;
+  for(const f of activos){
+    const grua = document.getElementById('fl-grua-'+f.key)?.value;
+    const cant = parseFloat(document.getElementById('fl-cant-'+f.key)?.value)||0;
+    const costo = parseFloat(document.getElementById('fl-costo-'+f.key)?.value)||0;
+    if(!grua) continue;
+    await sb.from('mantenimientos').insert([{
+      grua, fecha,
+      tipo: f.label,
+      costo,
+      obs: cant?`Cantidad: ${cant} L/u`:'',
+      fotos:[]
+    }]);
+    saved++;
+  }
+  if(saved>0){
+    await loadAll(); renderAll();
+    if(document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
+    initFluidos();
+    toast(saved+' fluido(s) guardado(s) correctamente');
+  }
+}
+
+// ══ OPERADORES ══
+const OP_TIPOS = [
+  {key:'ine', label:'INE', icon:'&#x1F4CA;'},
+  {key:'licencia', label:'Licencia de conducir', icon:'&#x1F4CB;'},
+  {key:'seguro', label:'Seguro medico', icon:'&#x1FA7A;'},
+  {key:'constancia', label:'Constancia', icon:'&#x1F4C3;'},
+  {key:'acta', label:'Acta de nacimiento', icon:'&#x1F4DC;'},
+  {key:'domicilio', label:'Comprobante de domicilio', icon:'&#x1F3E0;'},
+  {key:'curp', label:'CURP', icon:'&#x1F4DD;'},
+  {key:'solicitud', label:'Solicitud de empleo', icon:'&#x1F4BC;'},
+  {key:'contrato', label:'Contrato', icon:'&#x1F91D;'},
+  {key:'emergencias', label:'Contacto de emergencias', icon:'&#x1F6A8;'}
+];
+let opTemp = {};
+OP_TIPOS.forEach(t=>opTemp[t.key]=[]);
+
+function renderOpUpload(){
+  const nombre = document.getElementById('op-reg-nombre').value;
+  const sec = document.getElementById('op-upload-sections');
+  if(!nombre){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  document.getElementById('op-upload-grid').innerHTML = OP_TIPOS.map(t=>`
+    <div class="papel-card">
+      <div class="papel-card-title">${t.icon} ${t.label}</div>
+      <div class="img-preview-grid" id="op-prev-${t.key}"></div>
+      <label class="upload-btn-label" style="margin-top:10px">&#x1F4CE; Agregar archivos
+        <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="addOpTemp('${t.key}',this)"/>
+      </label>
+    </div>`).join('');
+}
+
+async function addOpTemp(tipo, input){
+  if(!opTemp[tipo]) opTemp[tipo]=[];
+  const container = document.getElementById('op-prev-'+tipo);
+  for(const file of input.files){
+    const b64 = await fileToBase64(file);
+    const fileObj = JSON.stringify({data:b64,name:file.name,type:file.type});
+    opTemp[tipo].push(fileObj);
+    const idx = opTemp[tipo].length-1;
+    const wrap = document.createElement('div'); wrap.className='img-preview-wrap';
+    const isImg = file.type.startsWith('image/');
+    if(isImg){
+      const img=document.createElement('img');img.src=b64;img.className='img-preview';img.onclick=()=>openLightbox(b64);wrap.appendChild(img);
+    } else {
+      const box=document.createElement('div');
+      box.style.cssText='width:80px;height:80px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;cursor:pointer';
+      box.innerHTML='<span style="font-size:22px">&#x1F4C4;</span><span style="font-size:9px;color:var(--navy);text-align:center;word-break:break-all;line-height:1.2">'+file.name+'</span>';
+      box.onclick=()=>openFile(fileObj); wrap.appendChild(box);
+    }
+    const btn=document.createElement('button');btn.className='img-remove';btn.textContent='x';
+    btn.onclick=()=>{opTemp[tipo][idx]=null;wrap.remove()};
+    wrap.appendChild(btn); container.appendChild(wrap);
+  }
+  input.value='';
+}
+
+async function saveOpTemp(){
+  const nombre = document.getElementById('op-reg-nombre').value;
+  if(!nombre) return toast('Selecciona un operador',true);
+  const {data: existing} = await sb.from('papeleria_operadores').select('*').eq('operador',nombre);
+  const existMap = {};
+  (existing||[]).forEach(x=>existMap[x.tipo]=x.fotos||[]);
+  for(const t of OP_TIPOS){
+    const nuevas = opTemp[t.key].filter(Boolean);
+    if(!nuevas.length) continue;
+    const merged = [...(existMap[t.key]||[]), ...nuevas];
+    await sb.from('papeleria_operadores').upsert({operador:nombre, tipo:t.key, fotos:merged, updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
+  }
+  OP_TIPOS.forEach(t=>opTemp[t.key]=[]);
+  document.querySelectorAll('[id^="op-prev-"]').forEach(el=>el.innerHTML='');
+  toast('Documentos del operador guardados');
+  renderOpDocs();
+}
+
+async function renderOpDocs(){
+  const nombre = document.getElementById('op-filter-nombre').value;
+  const el = document.getElementById('op-content');
+  if(!nombre){ el.innerHTML='<p class="empty">Selecciona un operador.</p>'; return; }
+  const {data} = await sb.from('papeleria_operadores').select('*').eq('operador',nombre);
+  const docs = {};
+  (data||[]).forEach(x=>docs[x.tipo]=x.fotos||[]);
+  el.innerHTML = '<div class="papel-grid">'+OP_TIPOS.map(t=>{
+    const fotos = docs[t.key]||[];
+    return`<div class="papel-card">
+      <div class="papel-card-title"><span>${t.icon} ${t.label}</span><span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span></div>
+      <div class="papel-imgs">${fotos.length?fotos.map((f,i)=>{
+        const fi=parseFileItem(f);const isImg=fi&&fi.type&&fi.type.startsWith('image/');const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+        const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+        return isImg
+          ?`<div style="position:relative"><img src="${src}" class="papel-img" onclick="openLightbox('${src}')"/>${isAdmin?`<button class="img-remove" onclick="deleteOpFoto('${nombre}','${t.key}',${i})">x</button>`:''}</div>`
+          :`<div style="position:relative"><div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:70px;height:70px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px;cursor:pointer"><span style="font-size:20px">&#x1F4C4;</span><span style="font-size:9px;color:var(--navy);text-align:center;word-break:break-all;line-height:1.1">${name.length>12?name.substring(0,10)+'...':name}</span></div>${isAdmin?`<button class="img-remove" onclick="deleteOpFoto('${nombre}','${t.key}',${i})">x</button>`:''}</div>`;
+      }).join(''):'<p class="papel-empty">Sin archivos</p>'}</div>
+      <label class="upload-btn-label">&#x1F4CE; Agregar archivo
+        <input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="uploadOpDirect('${nombre}','${t.key}',this)"/>
+      </label>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+async function uploadOpDirect(nombre,tipo,input){
+  const {data:ex} = await sb.from('papeleria_operadores').select('fotos').eq('operador',nombre).eq('tipo',tipo).single();
+  const existing = ex?.fotos||[];
+  for(const file of input.files){
+    const b64=await fileToBase64(file);
+    existing.push(JSON.stringify({data:b64,name:file.name,type:file.type}));
+  }
+  await sb.from('papeleria_operadores').upsert({operador:nombre,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
+  input.value=''; renderOpDocs(); toast('Archivo guardado');
+}
+
+async function deleteOpFoto(nombre,tipo,idx){
+  if(!isAdmin)return;
+  const {data:ex} = await sb.from('papeleria_operadores').select('fotos').eq('operador',nombre).eq('tipo',tipo).single();
+  const fotos = ex?.fotos||[];
+  fotos.splice(idx,1);
+  await sb.from('papeleria_operadores').upsert({operador:nombre,tipo,fotos,updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
+  renderOpDocs(); toast('Archivo eliminado');
+}
+
+function updateOpSelects(){
+  const choferes=[...new Set(gruas.map(g=>g.chofer).filter(Boolean))].sort();
+  const opts='<option value="">Selecciona un operador</option>'+choferes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  ['op-reg-nombre','op-filter-nombre'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;el.innerHTML=opts;el.value=v;
+  });
+}
+
+function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
 </script>
 
 <!-- MODAL EDICION GRUA -->
