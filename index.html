@@ -961,7 +961,13 @@ function renderGas(){
       const g=gruas.find(x=>x.id===r.grua);const rendAuto=calcRendimientoGrua(r.grua);
       const rendFinal=rendAuto!==null?rendAuto:(g&&g.rend?parseFloat(g.rend):null);
       const kmDisp=rendFinal?Math.round(r.litros*rendFinal):null;
-      const rendTramo=r.km_rec&&r.litros?(r.km_rec/r.litros).toFixed(2):null;
+      let rendTramo=null;
+      if(r.km_rec&&r.litros){
+        rendTramo=(r.km_rec/r.litros).toFixed(2);
+      } else if(r.odo&&r.litros){
+        const prevRec=recargas.filter(x=>x.grua===r.grua&&x.odo&&x.odo<r.odo).sort((a,b)=>b.odo-a.odo)[0];
+        if(prevRec&&prevRec.odo){const diff=r.odo-prevRec.odo;if(diff>0)rendTramo=(diff/prevRec.litros).toFixed(2);}
+      }
       const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
       const gasEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button>`:'';
       const delBtn=isAdmin?`<td style="display:flex;gap:4px">${gasEditBtn}<button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
