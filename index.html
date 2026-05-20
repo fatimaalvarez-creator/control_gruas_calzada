@@ -188,6 +188,7 @@ tbody tr:hover td{background:var(--surface-2)}
     <button class="subnav-btn active" onclick="showSub('gruas','lista',this)">&#x1F69B; Registro de Gruas</button>
     <button class="subnav-btn" onclick="showSub('gruas','papeleria',this)">&#x1F4C4; Papeleria Gruas</button>
     <button class="subnav-btn" onclick="showSub('gruas','operadores',this)">&#x1F464; Papeleria Operadores</button>
+    <button class="subnav-btn" onclick="showSub('gruas','herramientas',this)">&#x1F527; Herramientas</button>
   </div>
   <div class="subsection active" id="sub-gruas-lista">
     <div class="stats-grid" id="gruas-stats"></div>
@@ -241,6 +242,11 @@ tbody tr:hover td{background:var(--surface-2)}
   </div>
   <!-- SUBSECCION PAPELERIA OPERADORES -->
   <div class="subsection" id="sub-gruas-operadores">
+    <div class="subnav" style="margin-bottom:1rem">
+      <button class="subnav-btn active" onclick="showOpSub('docs',this)">&#x1F4C4; Documentos</button>
+      <button class="subnav-btn" onclick="showOpSub('equipo',this)">&#x1F455; Equipo</button>
+    </div>
+    <div id="op-sub-docs">
     <div class="card">
       <div class="card-title">&#x2795; Registrar documentos de operador</div>
       <div class="form-grid" style="margin-bottom:18px">
@@ -262,6 +268,57 @@ tbody tr:hover td{background:var(--surface-2)}
         <select id="op-filter-nombre" onchange="renderOpDocs()"><option value="">Selecciona un operador</option></select>
       </div>
       <div id="op-content"><p class="empty">Selecciona un operador para ver sus documentos.</p></div>
+    </div>
+    </div><!-- end op-sub-docs -->
+
+    <div id="op-sub-equipo" style="display:none">
+    <div class="card">
+      <div class="card-title">&#x1F455; Registrar equipo entregado al operador</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Operador *</label><select id="equipo-op"></select></div>
+        <div class="form-group"><label>Fecha *</label><input id="equipo-fecha" type="date"/></div>
+        <div class="form-group full"><label>Equipo / Material entregado *</label><textarea id="equipo-desc" rows="3" placeholder="Ej. 2 camisas, 1 chamarra, botas talla 28..."></textarea></div>
+        <div class="form-group full"><label>Observaciones</label><input id="equipo-obs" type="text" placeholder="Estado, talla, color, notas..."/></div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>&#x1F4F8; Fotos / Evidencia</label>
+        <input type="file" id="equipo-fotos-input" accept="image/*,.pdf,.doc,.docx" multiple onchange="previewFotos('equipo-fotos-input','equipo-fotos-preview','equipoFotosTemp')"/>
+        <div class="img-preview-grid" id="equipo-fotos-preview"></div>
+      </div>
+      <button class="btn btn-accent" onclick="saveEquipo()">&#x2713; Guardar registro</button>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F4CB; Historial de equipo por operador</div>
+      <div class="filters">
+        <select id="equipo-filter-op" onchange="renderEquipo()"><option value="">Todos los operadores</option></select>
+      </div>
+      <div id="equipo-content"><p class="empty">Selecciona un operador para ver su equipo.</p></div>
+    </div>
+    </div><!-- end op-sub-equipo -->
+  </div><!-- end sub-gruas-operadores -->
+  <!-- SUBSECCION HERRAMIENTAS -->
+  <div class="subsection" id="sub-gruas-herramientas">
+    <div class="card">
+      <div class="card-title">&#x1F527; Registrar entrega de herramientas</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Grua *</label><select id="herr-grua"></select></div>
+        <div class="form-group"><label>Fecha *</label><input id="herr-fecha" type="date"/></div>
+        <div class="form-group full"><label>Herramientas / Material entregado *</label><textarea id="herr-desc" rows="3" placeholder="Ej. Llave de cruz, gato hidraulico, cable de arrastre..."></textarea></div>
+        <div class="form-group full"><label>Observaciones</label><input id="herr-obs" type="text" placeholder="Estado, condicion, notas adicionales..."/></div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>&#x1F4F8; Fotos / Evidencia</label>
+        <input type="file" id="herr-fotos-input" accept="image/*,.pdf,.doc,.docx" multiple onchange="previewFotos('herr-fotos-input','herr-fotos-preview','herrFotosTemp')"/>
+        <div class="img-preview-grid" id="herr-fotos-preview"></div>
+      </div>
+      <button class="btn btn-accent" onclick="saveHerramientas()">&#x2713; Guardar registro</button>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F4CB; Historial de herramientas</div>
+      <div class="filters">
+        <select id="herr-filter-grua" onchange="renderHerramientas()"><option value="">Todas las gruas</option></select>
+      </div>
+      <div id="herr-content"><p class="empty">Cargando...</p></div>
     </div>
   </div>
 </div>
@@ -452,6 +509,8 @@ async function initApp(){
   document.getElementById('card-add-grua').style.display=isAdmin?'block':'none';
   document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('mant-fecha').value=todayStr();
+  document.getElementById('herr-fecha').value=todayStr();
+  document.getElementById('equipo-fecha').value=todayStr();
   await loadAll();
   renderAll();
   initFluidos();
@@ -745,15 +804,17 @@ async function addRecarga(){
   let kmRec=parseFloat(document.getElementById('gas-km-rec').value)||null;
   if(!kmRec&&odo){const u=ultimaRecarga(grua);if(u&&u.odo&&odo>u.odo)kmRec=Math.round(odo-u.odo)}
   const fotos=gasFotosTemp.filter(Boolean);
+  console.log('Saving recarga with fotos:', fotos.length);
   const{error}=await sb.from('recargas').insert([{grua,fecha:document.getElementById('gas-fecha').value,litros,costo:parseFloat(document.getElementById('gas-costo').value)||0,pxl:parseFloat(document.getElementById('gas-pxl').value)||0,odo,km_rec:kmRec,notas:document.getElementById('gas-notas').value.trim(),fotos}]);
   if(error)return toast('Error al guardar: '+error.message,true);
   ['gas-litros','gas-costo','gas-pxl','gas-odo','gas-km-rec','gas-notas'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('gas-km-auto').textContent='';document.getElementById('gas-rend-preview').style.display='none';
   document.getElementById('gas-pxl-auto').textContent='';document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
+  const fotosGuardadas=fotos.length;
   await loadAll();renderGas();
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
-  toast('Recarga guardada correctamente');
+  toast('Recarga guardada'+(fotosGuardadas>0?' con '+fotosGuardadas+' archivo(s)':''));
 }
 async function deleteRecarga(id){
   if(!isAdmin)return;if(!confirm('Eliminar esta recarga?'))return;
@@ -800,9 +861,10 @@ async function addMant(){
   ['mant-costo','mant-km','mant-prox','mant-taller','mant-obs','mant-chofer'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('mant-fecha').value=todayStr();
   document.getElementById('mant-fotos-preview').innerHTML='';mantFotosTemp=[];
+  const fotasMant=fotos.length;
   await loadAll();renderMant();
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
-  toast('Servicio guardado correctamente');
+  toast('Servicio guardado'+(fotasMant>0?' con '+fotasMant+' archivo(s)':''));
 }
 async function deleteMant(id){
   if(!isAdmin)return;if(!confirm('Eliminar este servicio?'))return;
@@ -1523,10 +1585,123 @@ async function deleteOpFoto(nombre,tipo,idx){
 function updateOpSelects(){
   const choferes=[...new Set(gruas.map(g=>g.chofer).filter(Boolean))].sort();
   const opts='<option value="">Selecciona un operador</option>'+choferes.map(c=>`<option value="${c}">${c}</option>`).join('');
-  ['op-reg-nombre','op-filter-nombre'].forEach(id=>{
+  const opFiltOpts='<option value="">Todos los operadores</option>'+choferes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  ['op-reg-nombre','op-filter-nombre','equipo-op'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const v=el.value;el.innerHTML=opts;el.value=v;
   });
+  const efo=document.getElementById('equipo-filter-op');
+  if(efo){const v=efo.value;efo.innerHTML=opFiltOpts;efo.value=v;}
+  // herramientas grua selects
+  const herrOpts=gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');
+  ['herr-grua'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;el.innerHTML='<option value="">Selecciona</option>'+herrOpts;el.value=v;
+  });
+  const hfg=document.getElementById('herr-filter-grua');
+  if(hfg){const v=hfg.value;hfg.innerHTML='<option value="">Todas las gruas</option>'+herrOpts;hfg.value=v;}
+}
+
+
+let herrFotosTemp = [];
+let equipoFotosTemp = [];
+
+function showOpSub(sub, btn){
+  ['docs','equipo'].forEach(s=>{
+    const el=document.getElementById('op-sub-'+s);
+    if(el) el.style.display=s===sub?'block':'none';
+  });
+  document.querySelectorAll('#sub-gruas-operadores .subnav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(sub==='equipo') renderEquipo();
+}
+
+// HERRAMIENTAS
+async function saveHerramientas(){
+  const grua=document.getElementById('herr-grua').value;
+  const desc=document.getElementById('herr-desc').value.trim();
+  if(!grua) return toast('Selecciona una grua',true);
+  if(!desc) return toast('Describe las herramientas entregadas',true);
+  const fotos=herrFotosTemp.filter(Boolean);
+  const {error}=await sb.from('herramientas').insert([{
+    grua,
+    fecha:document.getElementById('herr-fecha').value,
+    descripcion:desc,
+    observaciones:document.getElementById('herr-obs').value.trim(),
+    fotos
+  }]);
+  if(error) return toast('Error: '+error.message,true);
+  ['herr-desc','herr-obs'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('herr-fotos-preview').innerHTML='';
+  herrFotosTemp=[];
+  document.getElementById('herr-fecha').value=todayStr();
+  await renderHerramientas();
+  toast('Herramientas guardadas'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
+}
+
+async function renderHerramientas(){
+  const fg=document.getElementById('herr-filter-grua').value;
+  const el=document.getElementById('herr-content');
+  if(!el) return;
+  let q=sb.from('herramientas').select('*').order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  if(fg) q=q.eq('grua',fg);
+  const {data}=await q;
+  if(!data||!data.length){el.innerHTML='<p class="empty">Sin registros de herramientas.</p>';return}
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Grua</th><th>Herramientas / Material</th><th>Observaciones</th><th>Fotos</th>'+(isAdmin?'<th></th>':'')+'</tr></thead><tbody>'+
+    data.map(h=>`<tr><td class="mono">${fmtD(h.fecha)}</td><td><span class="grua-chip">${h.grua}</span></td><td style="max-width:250px">${h.descripcion}</td><td class="truncate">${h.observaciones||'—'}</td><td>${renderFotosThumb(h.fotos)}</td>`+(isAdmin?`<td><button class="btn btn-danger" onclick="deleteHerramienta('${h.id}')">&#x1F5D1;</button></td>`:'')+`</tr>`).join('')+
+    '</tbody></table></div>';
+}
+
+async function deleteHerramienta(id){
+  if(!isAdmin) return;
+  if(!confirm('Eliminar este registro?')) return;
+  await sb.from('herramientas').delete().eq('id',id);
+  renderHerramientas();
+  toast('Registro eliminado');
+}
+
+// EQUIPO OPERADORES
+async function saveEquipo(){
+  const operador=document.getElementById('equipo-op').value;
+  const desc=document.getElementById('equipo-desc').value.trim();
+  if(!operador) return toast('Selecciona un operador',true);
+  if(!desc) return toast('Describe el equipo entregado',true);
+  const fotos=equipoFotosTemp.filter(Boolean);
+  const {error}=await sb.from('equipo_operadores').insert([{
+    operador,
+    fecha:document.getElementById('equipo-fecha').value,
+    descripcion:desc,
+    observaciones:document.getElementById('equipo-obs').value.trim(),
+    fotos
+  }]);
+  if(error) return toast('Error: '+error.message,true);
+  ['equipo-desc','equipo-obs'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('equipo-fotos-preview').innerHTML='';
+  equipoFotosTemp=[];
+  document.getElementById('equipo-fecha').value=todayStr();
+  await renderEquipo();
+  toast('Equipo guardado'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
+}
+
+async function renderEquipo(){
+  const fop=document.getElementById('equipo-filter-op').value;
+  const el=document.getElementById('equipo-content');
+  if(!el) return;
+  let q=sb.from('equipo_operadores').select('*').order('fecha',{ascending:false}).order('created_at',{ascending:false});
+  if(fop) q=q.eq('operador',fop);
+  const {data}=await q;
+  if(!data||!data.length){el.innerHTML='<p class="empty">Sin registros de equipo.</p>';return}
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Operador</th><th>Equipo / Material</th><th>Observaciones</th><th>Fotos</th>'+(isAdmin?'<th></th>':'')+'</tr></thead><tbody>'+
+    data.map(e=>`<tr><td class="mono">${fmtD(e.fecha)}</td><td>${e.operador}</td><td style="max-width:250px">${e.descripcion}</td><td class="truncate">${e.observaciones||'—'}</td><td>${renderFotosThumb(e.fotos)}</td>`+(isAdmin?`<td><button class="btn btn-danger" onclick="deleteEquipo('${e.id}')">&#x1F5D1;</button></td>`:'')+`</tr>`).join('')+
+    '</tbody></table></div>';
+}
+
+async function deleteEquipo(id){
+  if(!isAdmin) return;
+  if(!confirm('Eliminar este registro?')) return;
+  await sb.from('equipo_operadores').delete().eq('id',id);
+  renderEquipo();
+  toast('Registro eliminado');
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
