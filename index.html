@@ -533,15 +533,23 @@ async function loadAll(){
   _isLoading = true;
   try {
     // Load papeleria separately - it can be heavy with images
-    const[g,r,m]=await Promise.all([
-      sb.from('gruas').select('id,tipo,chofer,rend,tank,placa,serie,modelo,foto,created_at').order('id'),
-      sb.from('recargas').select('id,grua,fecha,litros,costo,pxl,odo,km_rec,notas,fotos,created_at').order('created_at',{ascending:false}),
-      sb.from('mantenimientos').select('id,grua,chofer,tipo,fecha,costo,km,prox,taller,obs,created_at').order('created_at',{ascending:false}),
-    ]);
+    // Load gruas first (small table)
+    const g = await sb.from('gruas').select('id,tipo,chofer,rend,tank,placa,serie,modelo,foto,created_at').order('id');
     if(g.error) console.error('gruas error:',g.error);
+    gruas = g.data||[];
+    updateSelects();
+
+    // Load recargas and mantenimientos with pagination to avoid timeout
+    const [r, m] = await Promise.all([
+      sb.from('recargas').select('id,grua,fecha,litros,costo,pxl,odo,km_rec,notas,fotos,created_at')
+        .order('created_at',{ascending:false}).limit(500),
+      sb.from('mantenimientos').select('id,grua,chofer,tipo,fecha,costo,km,prox,taller,obs,fotos,created_at')
+        .order('created_at',{ascending:false}).limit(500),
+    ]);
     if(r.error) console.error('recargas error:',r.error);
     if(m.error) console.error('mant error:',m.error);
-    gruas=g.data||[];recargas=r.data||[];mantenimientos=m.data||[];
+    recargas = r.data||[];
+    mantenimientos = m.data||[];
     updateSelects();
   } catch(e) {
     console.error('loadAll exception:',e);
@@ -933,14 +941,31 @@ function renderGas(){
   let list=[...recargas];if(fgv)list=list.filter(r=>r.grua===fgv);if(fmv)list=list.filter(r=>r.fecha&&r.fecha.startsWith(fmv));if(fdv)list=list.filter(r=>r.fecha===fdv);
   const tbody=document.getElementById('gas-table');
   if(!list.length){tbody.innerHTML='<tr><td colspan="12" class="empty">Sin recargas registradas.</td></tr>';return}
-  tbody.innerHTML=list.map(r=>{
-    const g=gruas.find(x=>x.id===r.grua);const rendAuto=calcRendimientoGrua(r.grua);
-    const rendFinal=rendAuto!==null?rendAuto:(g&&g.rend?parseFloat(g.rend):null);
-    const kmDisp=rendFinal?Math.round(r.litros*rendFinal):null;
-    const rendTramo=r.km_rec&&r.litros?(r.km_rec/r.litros).toFixed(2):null;
-    const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
-    const gasEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button>`:'';const delBtn=isAdmin?`<td style="display:flex;gap:4px">${gasEditBtn}<button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
-    return`<tr><td class="mono">${fmtD(r.fecha)}</td><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'&#8212;'}</td><td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'&#8212;'}</td><td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'&#8212;'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'&#8212;'}</td><td class="truncate">${r.notas||'&#8212;'}</td><td>${renderFotosThumb(r.fotos)}</td>${delBtn}</tr>`;
+  // Group by day
+  const byDay={};
+  list.forEach(r=>{const d=r.fecha||'Sin fecha';if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+  const days=Object.keys(byDay).sort((a,b)=>b.localeCompare(a));
+  tbody.innerHTML=days.map(day=>{
+    const rows=byDay[day];
+    const dayTotal=rows.reduce((a,r)=>a+(r.litros||0),0);
+    const dayCosto=rows.reduce((a,r)=>a+(r.costo||0),0);
+    const dayHeader=`<tr style="background:var(--navy-mid)">
+      <td colspan="12" style="padding:8px 14px;font-size:12px;font-weight:600;color:#fff;letter-spacing:0.04em">
+        &#x1F4C5; ${fmtD(day)}
+        <span style="margin-left:16px;font-weight:400;opacity:0.8">${rows.length} recarga${rows.length!==1?'s':''} &nbsp;·&nbsp; ${fmtN(Math.round(dayTotal))} L &nbsp;·&nbsp; ${fmtM(dayCosto)}</span>
+      </td>
+    </tr>`;
+    const dayRows=rows.map(r=>{
+      const g=gruas.find(x=>x.id===r.grua);const rendAuto=calcRendimientoGrua(r.grua);
+      const rendFinal=rendAuto!==null?rendAuto:(g&&g.rend?parseFloat(g.rend):null);
+      const kmDisp=rendFinal?Math.round(r.litros*rendFinal):null;
+      const rendTramo=r.km_rec&&r.litros?(r.km_rec/r.litros).toFixed(2):null;
+      const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
+      const gasEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button>`:'';
+      const delBtn=isAdmin?`<td style="display:flex;gap:4px">${gasEditBtn}<button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(r.fecha)}</td><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'&#8212;'}</td><td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'&#8212;'}</td><td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'&#8212;'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'&#8212;'}</td><td class="truncate">${r.notas||'&#8212;'}</td><td>${renderFotosThumb(r.fotos)}</td>${delBtn}</tr>`;
+    }).join('');
+    return dayHeader+dayRows;
   }).join('');
 }
 
@@ -980,9 +1005,25 @@ function renderMant(){
   let list=[...mantenimientos];if(fgv)list=list.filter(m=>m.grua===fgv);if(ft)list=list.filter(m=>m.tipo===ft);
   const tbody=document.getElementById('mant-table');
   if(!list.length){tbody.innerHTML='<tr><td colspan="11" class="empty">Sin servicios registrados.</td></tr>';return}
-  tbody.innerHTML=list.map(m=>{
-    const mantEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditMantModal('${m.id}')">&#x270F;</button>`:'';const delBtn=isAdmin?`<td style="display:flex;gap:4px">${mantEditBtn}<button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
-    return`<tr><td class="mono">${fmtD(m.fecha)}</td><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'&#8212;'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'&#8212;'}</td><td class="truncate">${m.taller||'&#8212;'}</td><td class="truncate">${m.obs||'&#8212;'}</td><td>${renderFotosThumb(m.fotos)}</td>${delBtn}</tr>`;
+  // Group by day
+  const byDayM={};
+  list.forEach(m=>{const d=m.fecha||'Sin fecha';if(!byDayM[d])byDayM[d]=[];byDayM[d].push(m);});
+  const daysM=Object.keys(byDayM).sort((a,b)=>b.localeCompare(a));
+  tbody.innerHTML=daysM.map(day=>{
+    const rows=byDayM[day];
+    const dayCosto=rows.reduce((a,m)=>a+(m.costo||0),0);
+    const dayHeader=`<tr style="background:var(--navy-mid)">
+      <td colspan="11" style="padding:8px 14px;font-size:12px;font-weight:600;color:#fff;letter-spacing:0.04em">
+        &#x1F4C5; ${fmtD(day)}
+        <span style="margin-left:16px;font-weight:400;opacity:0.8">${rows.length} servicio${rows.length!==1?'s':''} &nbsp;·&nbsp; ${fmtM(dayCosto)}</span>
+      </td>
+    </tr>`;
+    const dayRows=rows.map(m=>{
+      const mantEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditMantModal('${m.id}')">&#x270F;</button>`:'';
+      const delBtn=isAdmin?`<td style="display:flex;gap:4px">${mantEditBtn}<button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
+      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(m.fecha)}</td><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'&#8212;'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'&#8212;'}</td><td class="truncate">${m.taller||'&#8212;'}</td><td class="truncate">${m.obs||'&#8212;'}</td><td>${renderFotosThumb(m.fotos)}</td>${delBtn}</tr>`;
+    }).join('');
+    return dayHeader+dayRows;
   }).join('');
 }
 
