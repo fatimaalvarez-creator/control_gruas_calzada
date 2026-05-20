@@ -203,9 +203,14 @@ tbody tr:hover td{background:var(--surface-2)}
         <div class="form-group"><label>Placa / Num. economico</label><input id="g-placa" type="text" placeholder="Opcional"/></div>
         <div class="form-group"><label>Número de serie</label><input id="g-serie" type="text" placeholder="Opcional"/></div>
         <div class="form-group"><label>Marca / Modelo</label><input id="g-modelo" type="text" placeholder="Ej. Ford F-450"/></div>
-        <div class="form-group"><label>Foto de la grua</label><input id="g-foto-input" type="file" accept="image/*" onchange="previewGruaFoto(this)"/></div>
+        <div class="form-group"><label>Foto principal de la grua</label><input id="g-foto-input" type="file" accept="image/*" onchange="previewGruaFoto(this)"/></div>
       </div>
       <div id="g-foto-preview" style="margin-bottom:14px;display:none"><img id="g-foto-img" src="" style="width:130px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>&#x1F4F8; Fotos de la grua (todos los costados)</label>
+        <input type="file" id="g-fotos-extra-input" accept="image/*" multiple onchange="previewFotos('g-fotos-extra-input','g-fotos-extra-preview','gruaFotosExtraTemp')"/>
+        <div class="img-preview-grid" id="g-fotos-extra-preview"></div>
+      </div>
       <button class="btn btn-accent" onclick="addGrua()">&#x2713; Guardar grua</button>
     </div>
     <div class="card">
@@ -347,19 +352,18 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div id="gas-rend-preview" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:var(--radius);font-size:13px;color:var(--green);font-weight:500"></div>
     <div class="form-group" style="margin-bottom:16px"><label>&#x1F4F8; Fotos del ticket</label><input type="file" id="gas-fotos-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewFotos('gas-fotos-input','gas-fotos-preview','gasFotosTemp')"/><div class="img-preview-grid" id="gas-fotos-preview"></div></div>
+
+    <!-- FLUIDOS INLINE -->
+    <div style="border-top:1px solid var(--border);padding-top:1.25rem;margin-top:1rem">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">&#x1F9EA; Fluidos y consumibles <span style="font-size:12px;font-weight:400;color:var(--text-3)">(opcional — activa los que apliquen en esta carga)</span></div>
+      <div id="fluidos-toggles" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px"></div>
+      <div id="fluidos-forms"></div>
+    </div>
+
     <button class="btn btn-accent" onclick="addRecarga()">&#x2713; Guardar recarga</button>
   </div>
 
-  <!-- FLUIDOS -->
-  <div class="card">
-    <div class="card-title">&#x1F9EA; Fluidos y consumibles</div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Registra recargas de UREA, aceites y otros fluidos comprados en gasolinera.</p>
-    <div id="fluidos-toggles" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px"></div>
-    <div id="fluidos-forms"></div>
-    <div id="fluidos-save-btn" style="display:none;margin-top:8px">
-      <button class="btn btn-accent" onclick="saveFluidos()">&#x2713; Guardar fluidos</button>
-    </div>
-  </div>
+
   </div><!-- end gas-sub-registro -->
   <div id="gas-sub-diario" style="display:none">
     <div class="card">
@@ -402,7 +406,8 @@ tbody tr:hover td{background:var(--surface-2)}
       <div class="form-group"><label>Tipo de servicio *</label><select id="mant-tipo"><option>Cambio de aceite</option><option>Servicio electrico</option><option>Cambio de llantas</option><option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option><option>Frenos</option><option>Suspension</option><option>Transmision</option><option>Radiador / Refrigeracion</option><option>Revision general</option><option>Afinacion</option><option>Bateria</option><option>Lamineria y Pintura</option><option>Sistema Hidraulico</option><option>Tapiceria</option><option>Embrague</option><option>Otro</option></select></div>
       <div class="form-group"><label>Fecha *</label><input id="mant-fecha" type="date"/></div>
       <div class="form-group"><label>Costo ($)</label><input id="mant-costo" type="number" placeholder="Opcional" min="0" step="0.01"/></div>
-      <div class="form-group"><label>Km al momento</label><input id="mant-km" type="number" placeholder="Opcional" min="0"/></div>
+      <div class="form-group"><label>Km al momento</label><input id="mant-km" type="number" placeholder="Opcional" min="0" oninput="checkMantKm()"/></div>
+      <div id="mant-km-warn" style="display:none;font-size:12px;color:var(--red);font-weight:600;margin-top:-10px;padding:6px 10px;background:var(--red-bg);border-radius:var(--radius)">&#x26A0; Km menor o igual al ultimo registro</div>
       <div class="form-group"><label>Proximo servicio</label><input id="mant-prox" type="text" placeholder="Ej. 25000 km o 01/12/2025"/></div>
       <div class="form-group"><label>Taller / Tecnico</label><input id="mant-taller" type="text" placeholder="Opcional"/></div>
       <div class="form-group full"><label>Observaciones</label><input id="mant-obs" type="text" placeholder="Detalles, refacciones usadas..."/></div>
@@ -464,7 +469,7 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 
 let currentUser=null,isAdmin=false;
 let gruas=[],recargas=[],mantenimientos=[],papeleria={};
-let gasFotosTemp=[],mantFotosTemp=[],papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]};
+let gasFotosTemp=[],mantFotosTemp=[],papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]},gruaFotosExtraTemp=[];
 
 // TOAST
 function toast(msg,err=false){
@@ -633,10 +638,25 @@ function renderFotosThumb(fotos){
 
 // RENDIMIENTO
 function calcRendimientoGrua(gruaId){
-  const recs=recargas.filter(r=>r.grua===gruaId&&r.odo).sort((a,b)=>a.odo-b.odo);const segs=[];
-  for(let i=1;i<recs.length;i++){const km=recs[i].odo-recs[i-1].odo;const l=recs[i-1].litros;if(km>0&&l>0)segs.push(km/l)}
-  recargas.filter(r=>r.grua===gruaId&&r.km_rec&&r.litros).forEach(r=>segs.push(r.km_rec/r.litros));
-  if(!segs.length)return null;return Math.round((segs.reduce((a,b)=>a+b,0)/segs.length)*100)/100;
+  const recsConOdo=recargas.filter(r=>r.grua===gruaId&&r.odo).sort((a,b)=>a.odo-b.odo);
+  const segs=[];
+  // Segments from consecutive odometer readings
+  for(let i=1;i<recsConOdo.length;i++){
+    const km=recsConOdo[i].odo-recsConOdo[i-1].odo;
+    const l=recsConOdo[i-1].litros;
+    if(km>0&&l>0)segs.push(km/l);
+  }
+  // Add km_rec segments only for recargas WITHOUT odometer (to avoid double counting)
+  recargas.filter(r=>r.grua===gruaId&&r.km_rec&&r.litros&&!r.odo).forEach(r=>segs.push(r.km_rec/r.litros));
+  if(!segs.length){
+    // Fallback: if only one odo reading but has km_rec, use that
+    const conKmRec=recargas.filter(r=>r.grua===gruaId&&r.km_rec&&r.litros);
+    if(conKmRec.length){
+      conKmRec.forEach(r=>segs.push(r.km_rec/r.litros));
+    }
+  }
+  if(!segs.length)return null;
+  return Math.round((segs.reduce((a,b)=>a+b,0)/segs.length)*100)/100;
 }
 function ultimaRecarga(gruaId){return recargas.filter(r=>r.grua===gruaId&&r.odo).sort((a,b)=>b.odo-a.odo)[0]||null}
 function calcCostoLitro(){
@@ -652,13 +672,31 @@ function onGruaChange(){calcKmRecorridos()}
 function calcKmRecorridos(){
   const gruaId=document.getElementById('gas-grua').value;const odo=parseFloat(document.getElementById('gas-odo').value);
   const prevEl=document.getElementById('gas-km-auto');const preview=document.getElementById('gas-rend-preview');const kmRec=document.getElementById('gas-km-rec');
-  if(!gruaId||!odo){prevEl.textContent='';preview.style.display='none';return}
+  const odoInput=document.getElementById('gas-odo');
+  if(!gruaId||!odo){prevEl.textContent='';preview.style.display='none';odoInput.style.borderColor='';return}
   const u=ultimaRecarga(gruaId);
-  if(u&&u.odo&&odo>u.odo){
-    const diff=Math.round(odo-u.odo);prevEl.textContent='-> '+diff.toLocaleString('es-MX')+' km';kmRec.placeholder=diff+' km';
+  if(u&&u.odo){
+    if(odo<=u.odo){
+      // WARN: odometer is same or lower than previous
+      odoInput.style.borderColor='var(--red)';odoInput.style.boxShadow='0 0 0 3px rgba(220,38,38,0.15)';
+      prevEl.innerHTML='<span style="color:var(--red);font-weight:700">&#x26A0; Debe ser mayor a '+fmtN(u.odo)+' km (ultimo registro)</span>';
+      preview.style.display='block';preview.style.background='var(--red-bg)';preview.style.borderColor='#fca5a5';preview.style.color='var(--red)';
+      preview.innerHTML='&#x26A0; El odometro ingresado ('+fmtN(odo)+' km) es igual o menor al ultimo registrado ('+fmtN(u.odo)+' km). Verifica el valor.';
+      kmRec.value='';kmRec.placeholder='Corrige el odometro';
+      return;
+    }
+    const diff=Math.round(odo-u.odo);
+    odoInput.style.borderColor='var(--green)';odoInput.style.boxShadow='0 0 0 3px rgba(22,163,74,0.12)';
+    prevEl.textContent='-> '+diff.toLocaleString('es-MX')+' km';kmRec.placeholder=diff+' km';
     const l=parseFloat(document.getElementById('gas-litros').value)||u.litros;
-    if(l>0){preview.style.display='block';preview.innerHTML='Rendimiento estimado: <strong>'+(diff/l).toFixed(2)+' km/L</strong>'}
-  }else{prevEl.textContent='';kmRec.placeholder='Captura manual';preview.style.display='none'}
+    if(l>0){
+      preview.style.display='block';preview.style.background='var(--green-bg)';preview.style.borderColor='#bbf7d0';preview.style.color='var(--green)';
+      preview.innerHTML='Rendimiento estimado: <strong>'+(diff/l).toFixed(2)+' km/L</strong>';
+    }
+  }else{
+    odoInput.style.borderColor='';odoInput.style.boxShadow='';
+    prevEl.textContent='(Primer registro)';kmRec.placeholder='Captura manual';preview.style.display='none';
+  }
 }
 function autoFillMantChofer(){const g=gruas.find(x=>x.id===document.getElementById('mant-grua').value);if(g)document.getElementById('mant-chofer').value=g.chofer||''}
 
@@ -698,7 +736,12 @@ async function addGrua(){
   ['g-id','g-rend','g-tank','g-placa','g-serie','g-modelo','g-chofer'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('g-foto-preview').style.display='none';
   document.getElementById('g-foto-input').value='';
-  
+  // Save extra fotos to papeleria as 'fotos_grua'
+  const extFotos=gruaFotosExtraTemp.filter(Boolean);
+  if(extFotos.length){
+    await sb.from('papeleria').upsert({grua:id,tipo:'fotos_grua',fotos:extFotos,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
+  }
+  document.getElementById('g-fotos-extra-preview').innerHTML='';gruaFotosExtraTemp=[];
   await loadAll();
   renderGruas();
   toast('Grua guardada correctamente');
@@ -751,20 +794,22 @@ async function savePapelTemp(){
   const gruaId=document.getElementById('papel-reg-grua').value;if(!gruaId)return toast('Selecciona una grua',true);
   for(const tipo of['poliza','tarjeta','verificacion','factura']){
     const nuevas=papelTemp[tipo].filter(Boolean);if(!nuevas.length)continue;
-    if(!papeleria[gruaId])papeleria[gruaId]={};
-    const merged=[...(papeleria[gruaId][tipo]||[]),...nuevas];
-    await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:merged,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
+    // Always fetch fresh from Supabase
+    const {data:dbRow}=await sb.from('papeleria').select('fotos').eq('grua',gruaId).eq('tipo',tipo).maybeSingle();
+    const merged=[...(dbRow?.fotos||[]),...nuevas];
+    const {error}=await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:merged,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
+    if(error){console.error('savePapelTemp error:',error);toast('Error: '+error.message,true);return;}
   }
   papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]};
   ['prev-poliza','prev-tarjeta','prev-verificacion','prev-factura'].forEach(id=>document.getElementById(id).innerHTML='');
-  await loadAll();toast('Documentos guardados');
+  await loadAll();renderPapeleria();toast('Documentos guardados correctamente');
 }
 function renderPapelUpload(){const gId=document.getElementById('papel-reg-grua').value;document.getElementById('papel-upload-sections').style.display=gId?'block':'none'}
 function renderPapeleria(){
   const gruaId=document.getElementById('papel-filter-grua').value;const el=document.getElementById('papel-content');
   if(!gruaId){el.innerHTML='<p class="empty">Selecciona una grua para ver sus documentos.</p>';return}
   const p=papeleria[gruaId]||{};const g=gruas.find(x=>x.id===gruaId);
-  const TIPOS=[{key:'poliza',label:'Poliza de Seguro',icon:'&#x1F6E1;&#xFE0F;'},{key:'tarjeta',label:'Tarjeta de Circulacion',icon:'&#x1F4CB;'},{key:'verificacion',label:'Verificacion',icon:'&#x2705;'},{key:'factura',label:'Factura de la Grua',icon:'&#x1F9FE;'}];
+  const TIPOS=[{key:'poliza',label:'Poliza de Seguro',icon:'&#x1F6E1;&#xFE0F;'},{key:'tarjeta',label:'Tarjeta de Circulacion',icon:'&#x1F4CB;'},{key:'verificacion',label:'Verificacion',icon:'&#x2705;'},{key:'factura',label:'Factura de la Grua',icon:'&#x1F9FE;'},{key:'fotos_grua',label:'Fotos de la Grua',icon:'&#x1F4F8;'}];
   el.innerHTML=(g&&g.foto?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)"><img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="openLightbox('${g.foto}')"/><div><div style="font-weight:600;font-size:15px">${g.id}</div><div style="font-size:13px;color:var(--text-2)">${g.chofer||'Sin chofer asignado'} &mdash; ${g.tipo}</div></div></div>`:'')+
   '<div class="papel-grid">'+TIPOS.map(t=>{
     const fotos=p[t.key]||[];
@@ -782,13 +827,19 @@ function renderPapeleria(){
   }).join('')+'</div>';
 }
 async function uploadPapelDirect(gruaId,tipo,input){
-  if(!papeleria[gruaId])papeleria[gruaId]={};const existing=papeleria[gruaId][tipo]||[];
+  // Always fetch current state from Supabase to avoid stale cache
+  const {data:dbRow}=await sb.from('papeleria').select('fotos').eq('grua',gruaId).eq('tipo',tipo).maybeSingle();
+  const existing=[...(dbRow?.fotos||[])];
   for(const file of input.files){
     const b64=await fileToBase64(file);
     existing.push(JSON.stringify({data:b64,name:file.name,type:file.type}));
   }
-  await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
-  input.value='';await loadAll();renderPapeleria();toast('Archivo guardado');
+  const {error}=await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
+  if(error){console.error('uploadPapelDirect error:',error);toast('Error al guardar: '+error.message,true);return;}
+  input.value='';
+  await loadAll();
+  renderPapeleria();
+  toast('Archivo guardado correctamente');
 }
 async function deletePapelFoto(gruaId,tipo,idx){
   if(!isAdmin)return;papeleria[gruaId][tipo].splice(idx,1);
@@ -801,6 +852,10 @@ async function addRecarga(){
   const grua=document.getElementById('gas-grua').value;const litros=parseFloat(document.getElementById('gas-litros').value);
   if(!grua)return toast('Selecciona una grua',true);if(!litros||litros<=0)return toast('Ingresa los litros cargados',true);
   const odo=parseFloat(document.getElementById('gas-odo').value)||null;
+  if(odo){
+    const u=ultimaRecarga(grua);
+    if(u&&u.odo&&odo<=u.odo) return toast('El odometro ('+fmtN(odo)+' km) debe ser mayor al ultimo registro ('+fmtN(u.odo)+' km)',true);
+  }
   let kmRec=parseFloat(document.getElementById('gas-km-rec').value)||null;
   if(!kmRec&&odo){const u=ultimaRecarga(grua);if(u&&u.odo&&odo>u.odo)kmRec=Math.round(odo-u.odo)}
   const fotos=gasFotosTemp.filter(Boolean);
@@ -811,9 +866,12 @@ async function addRecarga(){
   document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('gas-km-auto').textContent='';document.getElementById('gas-rend-preview').style.display='none';
   document.getElementById('gas-pxl-auto').textContent='';document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
+  // Also save any active fluidos
+  await saveFluidosInline(grua, document.getElementById('gas-fecha').value);
   const fotosGuardadas=fotos.length;
   await loadAll();renderGas();
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  initFluidos();
   toast('Recarga guardada'+(fotosGuardadas>0?' con '+fotosGuardadas+' archivo(s)':''));
 }
 async function deleteRecarga(id){
@@ -1423,26 +1481,27 @@ function toggleFluido(key){
 function renderFluidosForms(){
   const formsEl = document.getElementById('fluidos-forms');
   const activos = FLUIDOS_TIPOS.filter(f=>fluidosActivos[f.key]);
-  document.getElementById('fluidos-save-btn').style.display = activos.length?'block':'none';
   if(!activos.length){ formsEl.innerHTML=''; return; }
-  formsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:12px;margin-top:12px">' +
+  formsEl.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px">' +
     activos.map(f=>`
-      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
-        <div style="font-size:13px;font-weight:600;margin-bottom:10px">${f.icon} ${f.label}</div>
-        <div class="form-group" style="margin-bottom:8px"><label>Grua *</label><select id="fl-grua-${f.key}">${gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('')}</select></div>
-        <div class="form-group" style="margin-bottom:8px"><label>Cantidad (L o unidad)</label><input id="fl-cant-${f.key}" type="number" min="0" step="0.1" placeholder="Ej. 5"/></div>
-        <div class="form-group"><label>Costo ($)</label><input id="fl-costo-${f.key}" type="number" min="0" step="0.01" placeholder="Opcional"/></div>
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--navy)">${f.icon} ${f.label}</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Cantidad (L o unidad)</label>
+          <input id="fl-cant-${f.key}" type="number" min="0" step="0.1" placeholder="Ej. 5"/>
+        </div>
+        <div class="form-group">
+          <label>Costo ($)</label>
+          <input id="fl-costo-${f.key}" type="number" min="0" step="0.01" placeholder="Ej. 150.00"/>
+        </div>
       </div>`).join('') +
     '</div>';
 }
 
-async function saveFluidos(){
+async function saveFluidosInline(grua, fecha){
   const activos = FLUIDOS_TIPOS.filter(f=>fluidosActivos[f.key]);
   if(!activos.length) return;
-  const fecha = todayStr();
-  let saved = 0;
   for(const f of activos){
-    const grua = document.getElementById('fl-grua-'+f.key)?.value;
     const cant = parseFloat(document.getElementById('fl-cant-'+f.key)?.value)||0;
     const costo = parseFloat(document.getElementById('fl-costo-'+f.key)?.value)||0;
     if(!grua) continue;
@@ -1450,17 +1509,23 @@ async function saveFluidos(){
       grua, fecha,
       tipo: f.label,
       costo,
-      obs: cant?`Cantidad: ${cant} L/u`:'',
+      obs: cant?'Cantidad: '+cant+' L/u':'',
       fotos:[]
     }]);
-    saved++;
   }
-  if(saved>0){
-    await loadAll(); renderAll();
-    if(document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
-    initFluidos();
-    toast(saved+' fluido(s) guardado(s) correctamente');
-  }
+}
+
+async function saveFluidos(){
+  const activos = FLUIDOS_TIPOS.filter(f=>fluidosActivos[f.key]);
+  if(!activos.length) return toast('Activa al menos un fluido',true);
+  const fecha = todayStr();
+  const grua = document.getElementById('gas-grua').value;
+  if(!grua) return toast('Selecciona una grua primero',true);
+  await saveFluidosInline(grua, fecha);
+  await loadAll(); renderAll();
+  if(document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
+  initFluidos();
+  toast('Fluidos guardados correctamente');
 }
 
 // ══ OPERADORES ══
@@ -1702,6 +1767,24 @@ async function deleteEquipo(id){
   await sb.from('equipo_operadores').delete().eq('id',id);
   renderEquipo();
   toast('Registro eliminado');
+}
+
+
+function checkMantKm(){
+  const gruaId=document.getElementById('mant-grua').value;
+  const km=parseFloat(document.getElementById('mant-km').value);
+  const warn=document.getElementById('mant-km-warn');
+  const input=document.getElementById('mant-km');
+  if(!gruaId||!km||!warn) return;
+  // Get last mant km for this grua
+  const last=mantenimientos.filter(m=>m.grua===gruaId&&m.km).sort((a,b)=>b.km-a.km)[0];
+  if(last&&km<=last.km){
+    input.style.borderColor='var(--red)';input.style.boxShadow='0 0 0 3px rgba(220,38,38,0.15)';
+    warn.style.display='block';warn.textContent='⚠ Km ('+fmtN(km)+') igual o menor al ultimo registro ('+fmtN(last.km)+' km)';
+  } else {
+    input.style.borderColor='';input.style.boxShadow='';
+    warn.style.display='none';
+  }
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
