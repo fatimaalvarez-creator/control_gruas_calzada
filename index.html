@@ -532,19 +532,16 @@ async function loadAll(){
   if(_isLoading) return;
   _isLoading = true;
   try {
-    const[g,r,m,p]=await Promise.all([
-      sb.from('gruas').select('*').order('id'),
-      sb.from('recargas').select('*').order('created_at',{ascending:false}),
-      sb.from('mantenimientos').select('*').order('created_at',{ascending:false}),
-      sb.from('papeleria').select('*')
+    // Load papeleria separately - it can be heavy with images
+    const[g,r,m]=await Promise.all([
+      sb.from('gruas').select('id,tipo,chofer,rend,tank,placa,serie,modelo,foto,created_at').order('id'),
+      sb.from('recargas').select('id,grua,fecha,litros,costo,pxl,odo,km_rec,notas,fotos,created_at').order('created_at',{ascending:false}),
+      sb.from('mantenimientos').select('id,grua,chofer,tipo,fecha,costo,km,prox,taller,obs,created_at').order('created_at',{ascending:false}),
     ]);
     if(g.error) console.error('gruas error:',g.error);
     if(r.error) console.error('recargas error:',r.error);
     if(m.error) console.error('mant error:',m.error);
-    if(p.error) console.error('papeleria error:',p.error);
     gruas=g.data||[];recargas=r.data||[];mantenimientos=m.data||[];
-    papeleria={};
-    (p.data||[]).forEach(x=>{if(!papeleria[x.grua])papeleria[x.grua]={};papeleria[x.grua][x.tipo]=x.fotos||[]});
     updateSelects();
   } catch(e) {
     console.error('loadAll exception:',e);
@@ -552,6 +549,22 @@ async function loadAll(){
   } finally {
     _isLoading = false;
   }
+}
+
+async function loadPapeleria(gruaId){
+  try {
+    let q = sb.from('papeleria').select('*');
+    if(gruaId) q = q.eq('grua', gruaId);
+    const {data, error} = await q;
+    if(error){ console.error('papeleria error:',error); return; }
+    if(gruaId){
+      if(!papeleria[gruaId]) papeleria[gruaId]={};
+      (data||[]).forEach(x=>{ papeleria[gruaId][x.tipo]=x.fotos||[]; });
+    } else {
+      papeleria={};
+      (data||[]).forEach(x=>{ if(!papeleria[x.grua])papeleria[x.grua]={}; papeleria[x.grua][x.tipo]=x.fotos||[]; });
+    }
+  } catch(e){ console.error('loadPapeleria exception:',e); }
 }
 
 function updateSelects(){
@@ -824,9 +837,11 @@ async function savePapelTemp(){
   await loadAll();renderPapeleria();toast('Documentos guardados correctamente');
 }
 function renderPapelUpload(){const gId=document.getElementById('papel-reg-grua').value;document.getElementById('papel-upload-sections').style.display=gId?'block':'none'}
-function renderPapeleria(){
+async function renderPapeleria(){
   const gruaId=document.getElementById('papel-filter-grua').value;const el=document.getElementById('papel-content');
   if(!gruaId){el.innerHTML='<p class="empty">Selecciona una grua para ver sus documentos.</p>';return}
+  el.innerHTML='<p class="empty">Cargando documentos...</p>';
+  await loadPapeleria(gruaId);
   const p=papeleria[gruaId]||{};const g=gruas.find(x=>x.id===gruaId);
   const TIPOS=[{key:'poliza',label:'Poliza de Seguro',icon:'&#x1F6E1;&#xFE0F;'},{key:'tarjeta',label:'Tarjeta de Circulacion',icon:'&#x1F4CB;'},{key:'verificacion',label:'Verificacion',icon:'&#x2705;'},{key:'factura',label:'Factura de la Grua',icon:'&#x1F9FE;'},{key:'fotos_grua',label:'Fotos de la Grua',icon:'&#x1F4F8;'}];
   el.innerHTML=(g&&g.foto?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)"><img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="openLightbox('${g.foto}')"/><div><div style="font-weight:600;font-size:15px">${g.id}</div><div style="font-size:13px;color:var(--text-2)">${g.chofer||'Sin chofer asignado'} &mdash; ${g.tipo}</div></div></div>`:'')+
@@ -1012,10 +1027,12 @@ async function renderUsuarios(){
 
 
 // EDICION DE GRUA
-function openEditModal(id) {
+async function openEditModal(id) {
   if(!isAdmin) return;
   const g = gruas.find(x => x.id === id);
   if(!g) return;
+  // Load papeleria for this grua lazily
+  await loadPapeleria(id);
   document.getElementById('edit-g-id-original').value = g.id;
   document.getElementById('edit-g-id').value = g.id;
   document.getElementById('edit-g-tipo').value = g.tipo || 'Plataforma';
