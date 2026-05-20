@@ -156,6 +156,9 @@ tbody tr:hover td{background:var(--surface-2)}
   </div>
   <div class="header-right">
     <div class="header-date" id="header-date"></div>
+    <button onclick="refreshData()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:5px 12px;border-radius:var(--radius);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px" title="Recargar datos">
+      <span id="refresh-icon" style="display:inline-block">&#x21BA;</span> Actualizar
+    </button>
     <div class="user-chip"><span id="user-nombre"></span><span class="rol" id="user-rol-badge"></span></div>
     <button class="btn-logout" onclick="doLogout()">Salir</button>
   </div>
@@ -469,7 +472,7 @@ const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 
 let currentUser=null,isAdmin=false;
 let gruas=[],recargas=[],mantenimientos=[],papeleria={};
-let gasFotosTemp=[],mantFotosTemp=[],papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]},gruaFotosExtraTemp=[];
+let gasFotosTemp=[],mantFotosTemp=[],papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]},gruaFotosExtraTemp=[],editGruaFotosExtraTemp=[];
 
 // TOAST
 function toast(msg,err=false){
@@ -519,6 +522,8 @@ async function initApp(){
   await loadAll();
   renderAll();
   initFluidos();
+  // Auto-refresh every 60 seconds
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
 }
 
 // LOAD DATA
@@ -1015,6 +1020,26 @@ function openEditModal(id) {
   }
   document.getElementById('edit-foto-preview').style.display = 'none';
   document.getElementById('edit-g-foto-input').value = '';
+  // Show existing extra fotos
+  editGruaFotosExtraTemp = [];
+  editGruaExistingExtraFotos = undefined;
+  document.getElementById('edit-g-fotos-extra-preview').innerHTML = '';
+  document.getElementById('edit-g-fotos-extra-input').value = '';
+  const extraFotosEl = document.getElementById('edit-fotos-extra-current');
+  const extraFotos = (papeleria[g.id] && papeleria[g.id]['fotos_grua']) || [];
+  if(extraFotos.length){
+    extraFotosEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">' +
+      extraFotos.map((f,i)=>{
+        const fi=parseFileItem(f); const src=fi?fi.data:f;
+        return `<div style="position:relative">
+          <img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/>
+          <button onclick="removeEditGruaExtraFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button>
+        </div>`;
+      }).join('') +
+      '</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (x para eliminar)</span>';
+  } else {
+    extraFotosEl.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin fotos adicionales aun</span>';
+  }
   document.getElementById('modal-edit-grua').classList.add('open');
 }
 function closeEditModal(e) {
@@ -1083,14 +1108,25 @@ async function saveEditGrua() {
     if(!data || data.length === 0){ return toast('No se actualizó ningún registro. Verifica permisos en Supabase.', true); }
   }
 
+  // Save extra fotos — merge existing kept + new ones
+  const newExtraFotos = editGruaFotosExtraTemp.filter(Boolean);
+  const currentExtra = (papeleria[originalId] && papeleria[originalId]['fotos_grua']) || [];
+  const keptExtra = editGruaExistingExtraFotos !== undefined ? editGruaExistingExtraFotos : currentExtra;
+  const finalExtra = [...keptExtra, ...newExtraFotos];
+  if(finalExtra.length !== currentExtra.length || newExtraFotos.length > 0){
+    await sb.from('papeleria').upsert({grua:newId, tipo:'fotos_grua', fotos:finalExtra, updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
+  }
+  editGruaFotosExtraTemp = [];
+  editGruaExistingExtraFotos = undefined;
   document.getElementById('modal-edit-grua').classList.remove('open');
-  // update local array immediately
   const gIdx=gruas.findIndex(g=>g.id===originalId);
   if(gIdx!==-1 && newId===originalId) gruas[gIdx]={...gruas[gIdx],...updateFields};
   renderAll();
   await loadAll();
   renderAll();
   initFluidos();
+  // Auto-refresh every 60 seconds
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
   toast('Grua actualizada correctamente');
 }
 
@@ -1200,6 +1236,8 @@ async function saveEditMant(){
   await loadAll();
   renderAll();
   initFluidos();
+  // Auto-refresh every 60 seconds
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio actualizado correctamente');
 }
@@ -1317,6 +1355,8 @@ async function saveEditRecarga(){
   await loadAll();
   renderAll();
   initFluidos();
+  // Auto-refresh every 60 seconds
+  setInterval(()=>{ if(currentUser) loadAll().then(()=>renderAll()); }, 60000);
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga actualizada correctamente');
 }
@@ -1787,6 +1827,49 @@ function checkMantKm(){
   }
 }
 
+
+let editGruaExistingExtraFotos = undefined;
+
+function removeEditGruaExtraFoto(idx){
+  if(editGruaExistingExtraFotos === undefined){
+    // init from current papeleria
+    const gId = document.getElementById('edit-g-id-original').value;
+    editGruaExistingExtraFotos = [...((papeleria[gId] && papeleria[gId]['fotos_grua']) || [])];
+  }
+  editGruaExistingExtraFotos.splice(idx,1);
+  // re-render
+  const extraFotosEl = document.getElementById('edit-fotos-extra-current');
+  if(editGruaExistingExtraFotos.length){
+    extraFotosEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">' +
+      editGruaExistingExtraFotos.map((f,i)=>{
+        const fi=parseFileItem(f);const src=fi?fi.data:f;
+        return `<div style="position:relative">
+          <img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/>
+          <button onclick="removeEditGruaExtraFoto(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;background:var(--red);color:#fff;border:none;border-radius:99px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">x</button>
+        </div>`;
+      }).join('')+'</div><span style="font-size:12px;color:var(--text-3)">Fotos actuales (x para eliminar)</span>';
+  } else {
+    extraFotosEl.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Sin fotos adicionales</span>';
+  }
+}
+
+
+async function refreshData(){
+  const icon = document.getElementById('refresh-icon');
+  if(icon) { icon.style.transition='transform 0.6s'; icon.style.transform='rotate(360deg)'; }
+  try {
+    await loadAll();
+    renderAll();
+    if(document.getElementById('gas-sub-diario') && document.getElementById('gas-sub-diario').style.display!=='none') renderGasDiario();
+    if(document.getElementById('mant-sub-diario') && document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
+    toast('Datos actualizados');
+  } catch(e) {
+    console.error('refresh error:', e);
+    toast('Error al actualizar: '+e.message, true);
+  }
+  setTimeout(()=>{ if(icon){icon.style.transform='rotate(0deg)';icon.style.transition='none';} }, 700);
+}
+
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
 </script>
 
@@ -1809,10 +1892,16 @@ function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
       <div class="form-group"><label>Marca / Modelo</label><input id="edit-g-modelo" type="text"/></div>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">Foto de la grua</label>
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">Foto principal de la grua</label>
       <div id="edit-foto-current" style="margin-bottom:8px"></div>
       <input id="edit-g-foto-input" type="file" accept="image/*" onchange="previewEditFoto(this)"/>
       <div id="edit-foto-preview" style="margin-top:8px;display:none"><img id="edit-foto-img" src="" style="width:130px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Agregar mas fotos de la grua (se suman a las existentes)</label>
+      <div id="edit-fotos-extra-current" style="margin-bottom:8px"></div>
+      <input id="edit-g-fotos-extra-input" type="file" accept="image/*" multiple onchange="previewFotos('edit-g-fotos-extra-input','edit-g-fotos-extra-preview','editGruaFotosExtraTemp')"/>
+      <div class="img-preview-grid" id="edit-g-fotos-extra-preview"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEditModal()">Cancelar</button>
