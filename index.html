@@ -489,7 +489,7 @@ async function doLogin(){
   const errEl=document.getElementById('login-err');
   if(!user||!pass){errEl.style.display='block';errEl.textContent='Ingresa usuario y contrasena';return}
   btn.textContent='Verificando...';btn.disabled=true;
-  const{data,error}=await sb.from('usuarios').select('*').eq('username',user).eq('password',pass).eq('activo',true).single();
+  const{data,error}=await sb.from('usuarios').select('*').eq('username',user).eq('password',pass).eq('activo',true).maybeSingle();
   btn.textContent='Iniciar sesion';btn.disabled=false;
   if(error||!data){errEl.style.display='block';errEl.textContent='Usuario o contrasena incorrectos';return}
   errEl.style.display='none';
@@ -521,7 +521,7 @@ async function initApp(){
   document.getElementById('equipo-fecha').value=todayStr();
   await loadAll();
   renderAll();
-  initFluidos();
+  // initFluidos called when gas section opens (elements may not be in DOM yet)
   // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
   setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
 }
@@ -608,7 +608,9 @@ function showSection(s,btn){
   document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('sec-'+s).classList.add('active');if(btn)btn.classList.add('active');
-  if(s==='resumen')renderResumen();if(s==='admin')renderUsuarios();
+  if(s==='resumen')renderResumen();
+  if(s==='admin')renderUsuarios();
+  if(s==='gasolina') setTimeout(()=>initFluidos(),50);
 }
 function showSub(section,sub,btn){
   document.querySelectorAll('#sec-'+section+' .subsection').forEach(el=>el.classList.remove('active'));
@@ -913,7 +915,7 @@ async function addRecarga(){
   const fotosGuardadas=fotos.length;
   await loadAll();renderGas();
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
-  initFluidos();
+  if(document.getElementById('fluidos-toggles'))initFluidos();
   toast('Recarga guardada'+(fotosGuardadas>0?' con '+fotosGuardadas+' archivo(s)':''));
 }
 async function deleteRecarga(id){
@@ -1196,7 +1198,7 @@ async function saveEditGrua() {
   renderAll();
   await loadAll();
   renderAll();
-  initFluidos();
+  // initFluidos called when gas section opens (elements may not be in DOM yet)
   // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
   setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   toast('Grua actualizada correctamente');
@@ -1307,7 +1309,7 @@ async function saveEditMant(){
   renderAll();
   await loadAll();
   renderAll();
-  initFluidos();
+  // initFluidos called when gas section opens (elements may not be in DOM yet)
   // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
   setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
@@ -1426,7 +1428,7 @@ async function saveEditRecarga(){
   renderAll();
   await loadAll();
   renderAll();
-  initFluidos();
+  // initFluidos called when gas section opens (elements may not be in DOM yet)
   // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
   setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
@@ -1560,9 +1562,11 @@ const FLUIDOS_TIPOS = [
 let fluidosActivos = {};
 
 function initFluidos(){
+  try {
   const togglesEl = document.getElementById('fluidos-toggles');
   const formsEl = document.getElementById('fluidos-forms');
   if(!togglesEl || !formsEl) return;
+  fluidosActivos = {};
   togglesEl.innerHTML = FLUIDOS_TIPOS.map(f=>`
     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;user-select:none;min-width:180px">
       <span style="font-size:18px">${f.icon}</span>
@@ -1572,10 +1576,10 @@ function initFluidos(){
       </div>
     </label>`).join('');
   formsEl.innerHTML = '';
-  fluidosActivos = {};
-  document.getElementById('fluidos-save-btn').style.display='none';
 }
 
+  } catch(e){} 
+}
 function toggleFluido(key){
   fluidosActivos[key] = !fluidosActivos[key];
   const track = document.getElementById('toggle-'+key);
@@ -1636,7 +1640,7 @@ async function saveFluidos(){
   await saveFluidosInline(grua, fecha);
   await loadAll(); renderAll();
   if(document.getElementById('mant-sub-diario').style.display!=='none') renderMantDiario();
-  initFluidos();
+  if(document.getElementById('fluidos-toggles'))initFluidos();
   toast('Fluidos guardados correctamente');
 }
 
@@ -1933,7 +1937,7 @@ async function refreshData(){
   try {
     await loadAll();
     renderAll();
-    initFluidos();
+    if(document.getElementById('fluidos-toggles')) initFluidos();
     const gsd = document.getElementById('gas-sub-diario');
     const msd = document.getElementById('mant-sub-diario');
     if(gsd && gsd.style.display!=='none') renderGasDiario();
@@ -1941,7 +1945,8 @@ async function refreshData(){
     toast('Datos actualizados');
   } catch(e) {
     console.error('refresh error:', e);
-    toast('Error al actualizar: '+e.message, true);
+    // Only show toast for real errors, not DOM null errors
+    if(e.message && !e.message.includes('null')) toast('Error al actualizar: '+e.message, true);
   }
   setTimeout(()=>{ if(icon){icon.style.transform='rotate(0deg)';icon.style.transition='none';} }, 700);
 }
