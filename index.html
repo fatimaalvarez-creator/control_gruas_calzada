@@ -121,7 +121,13 @@ tbody tr:hover td{background:var(--surface-2)}
 
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
-  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()"/>
+  <div style="position:absolute;top:20px;right:70px;display:flex;gap:8px">
+    <a id="lightbox-download" href="" download target="_blank" onclick="event.stopPropagation()"
+       style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:6px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;text-decoration:none;display:flex;align-items:center;gap:6px">
+      &#x2B07;&#xFE0F; Descargar
+    </a>
+  </div>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" style="max-width:90vw;max-height:85vh;border-radius:8px;object-fit:contain"/>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -609,7 +615,27 @@ function todayStr(){
   const day=String(d.getDate()).padStart(2,'0');
   return y+'-'+m+'-'+day;
 }
-function openLightbox(src){if(!src||src.startsWith('data:image')||src.match(/\.(jpg|jpeg|png|gif|webp)/i)){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').classList.add('open')}}
+function openLightbox(src){
+  if(!src) return;
+  const img = document.getElementById('lightbox-img');
+  const dl = document.getElementById('lightbox-download');
+  img.src = src;
+  // Set download link
+  if(src.startsWith('http')){
+    // Storage URL - direct download
+    dl.href = src;
+    dl.download = src.split('/').pop().split('?')[0] || 'imagen';
+    dl.style.display = 'flex';
+  } else if(src.startsWith('data:image')){
+    // Base64 - create blob URL for download
+    dl.href = src;
+    dl.download = 'imagen_' + Date.now() + '.jpg';
+    dl.style.display = 'flex';
+  } else {
+    dl.style.display = 'none';
+  }
+  document.getElementById('lightbox').classList.add('open');
+}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open')}
 function showSection(s,btn){
   document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
@@ -706,14 +732,15 @@ function parseFileItem(item){
 function openFile(item){
   const fi=parseFileItem(item);
   if(!fi) return;
-  // If it's a storage URL, just open it directly
-  if(fi.storage || (fi.data && fi.data.startsWith('http'))){
+  const isImg=fi.type&&fi.type.startsWith('image/');
+  // Storage URL
+  if(fi.storage||(fi.data&&fi.data.startsWith('http'))){
+    if(isImg){ openLightbox(fi.data); return; }
     window.open(fi.data,'_blank');
     return;
   }
-  const isImg=fi.type&&fi.type.startsWith('image/');
   if(isImg){ openLightbox(fi.data); return; }
-  // For PDFs and other docs stored as base64: open in new tab
+  // Base64 doc - open in new tab
   try {
     const byteStr=atob(fi.data.split(',')[1]||fi.data);
     const ab=new ArrayBuffer(byteStr.length);
@@ -721,8 +748,22 @@ function openFile(item){
     for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
     const blob=new Blob([ab],{type:fi.type||'application/octet-stream'});
     const url=URL.createObjectURL(blob);
-    window.open(url,'_blank');
+    // Create temp link for download
+    const a=document.createElement('a');
+    a.href=url;a.download=fi.name||'archivo';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
   } catch(e){ window.open(fi.data,'_blank'); }
+}
+
+function downloadFile(src, name){
+  const a=document.createElement('a');
+  a.href=src;
+  a.download=name||'archivo';
+  a.target='_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 function renderFotosThumb(fotos){
   if(!fotos||!fotos.length)return'—';const f=fotos.filter(Boolean);if(!f.length)return'—';
@@ -732,7 +773,9 @@ function renderFotosThumb(fotos){
     const src=fi?fi.data:item;
     const name=fi?fi.name:'archivo';
     const safeItem=encodeURIComponent(JSON.stringify(fi));
-    if(isImg) return `<img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer;margin-right:2px" onclick="openLightbox('${src}')"/>`;
+    if(isImg) return `<div style="position:relative;display:inline-block;margin-right:2px">
+      <img src="${src}" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${src}')"/>
+    </div>`;
     return `<span title="${name}" onclick="openFile(decodeURIComponent('${safeItem}'))" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:5px;margin-right:2px;font-size:14px;cursor:pointer">&#x1F4C4;</span>`;
   }).join('')+(f.length>3?`<span style="font-size:11px;color:var(--text-3)">+${f.length-3}</span>`:'');
 }
