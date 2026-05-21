@@ -1103,7 +1103,7 @@ function renderGas(){
       const pxl=r.pxl||(r.costo&&r.litros?(r.costo/r.litros).toFixed(2):null);
       const gasEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditRecargaModal('${r.id}')">&#x270F;</button>`:'';
       const delBtn=isAdmin?`<td style="display:flex;gap:4px">${gasEditBtn}<button class="btn btn-danger" onclick="deleteRecarga('${r.id}')">&#x1F5D1;</button></td>`:'<td></td>';
-      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(r.fecha)}</td><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'&#8212;'}</td><td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'&#8212;'}</td><td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'&#8212;'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'&#8212;'}</td><td class="truncate">${r.notas||'&#8212;'}</td><td>${renderFotosThumb(r.fotos)}</td>${delBtn}</tr>`;
+      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(r.fecha)}</td><td><span class="grua-chip">${r.grua}</span></td><td class="mono">${r.litros} L</td><td class="mono">${r.km_rec?fmtN(r.km_rec)+' km':'&#8212;'}</td><td>${rendTramo?`<span class="badge badge-green">${rendTramo} km/L</span>`:'&#8212;'}</td><td>${kmDisp!==null?`<span class="badge badge-navy">${fmtN(kmDisp)} km</span>`:'<span class="badge badge-gray">Sin datos</span>'}</td><td class="mono">${fmtM(r.costo)}</td><td class="mono">${pxl?'$'+pxl+'/L':'&#8212;'}</td><td class="mono">${r.odo?fmtN(r.odo)+' km':'&#8212;'}</td><td><span class="obs-cell" onclick="showObsModal(this.dataset.text)" data-text="${r.notas||''}" style="cursor:${r.notas?'pointer':'default'};display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${r.notas?'var(--navy)':'var(--text-3)'}${r.notas?';text-decoration:underline dotted':''}" title="${r.notas||'Sin notas'}">${r.notas||'&#8212;'}</span></td><td>${renderFotosThumb(r.fotos)}</td>${delBtn}</tr>`;
     }).join('');
     return dayHeader+dayRows;
   }).join('');
@@ -1161,7 +1161,7 @@ function renderMant(){
     const dayRows=rows.map(m=>{
       const mantEditBtn=isAdmin?`<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="openEditMantModal('${m.id}')">&#x270F;</button>`:'';
       const delBtn=isAdmin?`<td style="display:flex;gap:4px">${mantEditBtn}<button class="btn btn-danger" onclick="deleteMant('${m.id}')">&#x1F5D1;</button></td>`:'<td></td>';
-      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(m.fecha)}</td><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'&#8212;'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate">${m.prox||'&#8212;'}</td><td class="truncate">${m.taller||'&#8212;'}</td><td class="truncate">${m.obs||'&#8212;'}</td><td>${renderFotosThumb(m.fotos)}</td>${delBtn}</tr>`;
+      return`<tr><td class="mono" style="color:var(--text-3);font-size:12px">${fmtD(m.fecha)}</td><td><span class="grua-chip">${m.grua}</span></td><td>${m.chofer||'&#8212;'}</td><td><span class="badge badge-navy">${m.tipo}</span></td><td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td><td class="mono">${fmtM(m.costo)}</td><td class="truncate" title="${m.prox||''}">${m.prox||'&#8212;'}</td><td class="truncate" title="${m.taller||''}">${m.taller||'&#8212;'}</td><td><span class="obs-cell" onclick="showObsModal(this.dataset.text)" data-text="${m.obs||''}" style="cursor:${m.obs?'pointer':'default'};display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${m.obs?'var(--navy)':'var(--text-3)'}${m.obs?';text-decoration:underline dotted':''}" title="${m.obs||'Sin observaciones'}">${m.obs||'&#8212;'}</span></td><td>${renderFotosThumb(m.fotos)}</td>${delBtn}</tr>`;
     }).join('');
     return dayHeader+dayRows;
   }).join('');
@@ -2237,6 +2237,13 @@ async function migrateFromOldProject(){
   if(btn) btn.disabled = false;
 }
 
+
+function showObsModal(text){
+  if(!text) return;
+  document.getElementById('modal-obs-text').textContent = text;
+  document.getElementById('modal-obs').classList.add('open');
+}
+
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
 </script>
 
@@ -2345,6 +2352,20 @@ function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeEditRecargaModal()">Cancelar</button>
       <button class="btn btn-accent" onclick="saveEditRecarga()">&#x2713; Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBSERVACIONES -->
+<div class="modal-overlay" id="modal-obs" onclick="document.getElementById('modal-obs').classList.remove('open')">
+  <div class="modal-box" style="max-width:500px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">&#x1F4DD; Observaciones completas</div>
+      <button class="modal-close" onclick="document.getElementById('modal-obs').classList.remove('open')">&#x2715;</button>
+    </div>
+    <div id="modal-obs-text" style="font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;padding:8px 0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-obs').classList.remove('open')">Cerrar</button>
     </div>
   </div>
 </div>
