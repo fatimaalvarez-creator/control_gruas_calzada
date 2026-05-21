@@ -449,6 +449,11 @@ tbody tr:hover td{background:var(--surface-2)}
 <!-- ADMIN USUARIOS -->
 <div class="section" id="sec-admin">
   <div class="section-header"><div><h2>Administrar Usuarios</h2><p>Solo visible para administradores</p></div></div>
+  <div class="card" style="border:2px solid var(--accent);margin-bottom:1.5rem">
+    <div class="card-title">&#x1F504; Migrar datos del proyecto anterior</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Importa gruas, recargas y mantenimientos del proyecto viejo. Las fotos no se migran (eran las que saturaban la BD). Ejecuta esto solo una vez.</p>
+    <button class="btn btn-accent" onclick="migrateFromOldProject()">&#x1F504; Iniciar migración de datos</button>
+  </div>
   <div class="card">
     <div class="card-title">&#x2795; Agregar usuario</div>
     <div class="form-grid">
@@ -466,8 +471,8 @@ tbody tr:hover td{background:var(--surface-2)}
 </div>
 
 <script>
-const SUPA_URL='https://iqilatistlwzapmljodu.supabase.co';
-const SUPA_KEY='sb_publishable_7_MHNw7eyBDmLNt3AAz46g_C2tqkYUd';
+const SUPA_URL='https://jxsuhevvyiutmahsrsyf.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4c3VoZXZ2eWl1dG1haHNyc3lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjE2NzIsImV4cCI6MjA5NDg5NzY3Mn0.8RKPZ2KPqqj07cuaiwX_xN7cteDC2SqDdOZP2B4LGWk';
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
 
 let currentUser=null,isAdmin=false;
@@ -619,16 +624,40 @@ function showSub(section,sub,btn){
   if(sub==='papeleria')renderPapeleria();
 }
 function fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+
+async function uploadToStorage(file){
+  const ext = file.name.split('.').pop();
+  const fileName = Date.now() + '_' + Math.random().toString(36).substr(2,9) + '.' + ext;
+  const {data, error} = await sb.storage.from('gruas-fotos').upload(fileName, file, {
+    contentType: file.type,
+    upsert: false
+  });
+  if(error){ console.error('Storage upload error:', error); return null; }
+  const {data: urlData} = sb.storage.from('gruas-fotos').getPublicUrl(fileName);
+  // Return in same JSON format as before for compatibility
+  return JSON.stringify({data: urlData.publicUrl, name: file.name, type: file.type, storage: true});
+}
 async function previewFotos(inputId,previewId,tempVar){
   const files=document.getElementById(inputId).files;const container=document.getElementById(previewId);
   for(const file of files){
-    const b64=await fileToBase64(file);
-    window[tempVar].push(JSON.stringify({data:b64,name:file.name,type:file.type}));
-    const idx=window[tempVar].length-1;
-    const wrap=document.createElement('div');wrap.className='img-preview-wrap';
+    // Show loading indicator
+    const loadWrap=document.createElement('div');
+    loadWrap.style.cssText='width:80px;height:80px;background:var(--surface-3);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-3)';
+    loadWrap.textContent='Subiendo...';
+    container.appendChild(loadWrap);
+    
+    // Upload to Storage
     const isImg=file.type.startsWith('image/');
+    const stored = await uploadToStorage(file);
+    container.removeChild(loadWrap);
+    
+    if(!stored){ toast('Error al subir archivo: '+file.name, true); continue; }
+    window[tempVar].push(stored);
+    const idx=window[tempVar].length-1;
+    const fi=parseFileItem(stored);
+    const wrap=document.createElement('div');wrap.className='img-preview-wrap';
     if(isImg){
-      const img=document.createElement('img');img.src=b64;img.className='img-preview';img.onclick=()=>openLightbox(b64);
+      const img=document.createElement('img');img.src=fi.data;img.className='img-preview';img.onclick=()=>openLightbox(fi.data);
       wrap.appendChild(img);
     } else {
       const box=document.createElement('div');
@@ -642,28 +671,56 @@ async function previewFotos(inputId,previewId,tempVar){
   }
   document.getElementById(inputId).value='';
 }
-function previewGruaFoto(input){
-  if(!input.files[0])return;const r=new FileReader();
+async function previewGruaFoto(input){
+  if(!input.files[0])return;
+  const file=input.files[0];
+  // Show preview immediately from local file
+  const r=new FileReader();
   r.onload=e=>{document.getElementById('g-foto-img').src=e.target.result;document.getElementById('g-foto-preview').style.display='block'};
-  r.readAsDataURL(input.files[0]);
+  r.readAsDataURL(file);
+  // Upload to storage in background
+  document.getElementById('g-foto-img').style.opacity='0.5';
+  const stored=await uploadToStorage(file);
+  if(stored){
+    const fi=parseFileItem(stored);
+    document.getElementById('g-foto-img').src=fi.data;
+    document.getElementById('g-foto-img').dataset.storageUrl=fi.data;
+  }
+  document.getElementById('g-foto-img').style.opacity='1';
 }
 function parseFileItem(item){
   if(!item) return null;
-  try{ const p=JSON.parse(item); return p; } catch(e){ return {data:item,name:'imagen',type:'image/jpeg'}; }
+  try{ 
+    const p=JSON.parse(item);
+    // If it's a storage URL (starts with http), use it directly
+    if(p.storage && p.data && p.data.startsWith('http')) return p;
+    return p;
+  } catch(e){ 
+    // Raw string - could be base64 or URL
+    if(item.startsWith('http')) return {data:item,name:'archivo',type:'image/jpeg',storage:true};
+    return {data:item,name:'imagen',type:'image/jpeg'}; 
+  }
 }
 function openFile(item){
   const fi=parseFileItem(item);
   if(!fi) return;
+  // If it's a storage URL, just open it directly
+  if(fi.storage || (fi.data && fi.data.startsWith('http'))){
+    window.open(fi.data,'_blank');
+    return;
+  }
   const isImg=fi.type&&fi.type.startsWith('image/');
   if(isImg){ openLightbox(fi.data); return; }
-  // For PDFs and other docs: open in new tab
-  const byteStr=atob(fi.data.split(',')[1]||fi.data);
-  const ab=new ArrayBuffer(byteStr.length);
-  const ia=new Uint8Array(ab);
-  for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
-  const blob=new Blob([ab],{type:fi.type||'application/octet-stream'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+  // For PDFs and other docs stored as base64: open in new tab
+  try {
+    const byteStr=atob(fi.data.split(',')[1]||fi.data);
+    const ab=new ArrayBuffer(byteStr.length);
+    const ia=new Uint8Array(ab);
+    for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
+    const blob=new Blob([ab],{type:fi.type||'application/octet-stream'});
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_blank');
+  } catch(e){ window.open(fi.data,'_blank'); }
 }
 function renderFotosThumb(fotos){
   if(!fotos||!fotos.length)return'—';const f=fotos.filter(Boolean);if(!f.length)return'—';
@@ -750,7 +807,7 @@ async function addGrua(){
   if(gruas.find(g=>g.id===id))return toast('Ya existe una grua con ese ID',true);
   
   const fotoEl = document.getElementById('g-foto-img');
-  const foto = document.getElementById('g-foto-preview').style.display==='block'?fotoEl.src:null;
+  const foto = document.getElementById('g-foto-preview').style.display==='block'?(fotoEl.dataset.storageUrl||fotoEl.src):null;
   
   // Capturamos los valores limpiando espacios
   const placaVal = document.getElementById('g-placa').value.trim();
@@ -814,13 +871,18 @@ function renderGruas(){
 async function addPapelTemp(tipo,input){
   if(!papelTemp[tipo])papelTemp[tipo]=[];const container=document.getElementById('prev-'+tipo);
   for(const file of input.files){
-    const b64=await fileToBase64(file);
-    const fileObj=JSON.stringify({data:b64,name:file.name,type:file.type});
-    papelTemp[tipo].push(fileObj);const idx=papelTemp[tipo].length-1;
+    const loadEl=document.createElement('div');
+    loadEl.style.cssText='width:80px;height:80px;background:var(--surface-3);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-3)';
+    loadEl.textContent='Subiendo...';container.appendChild(loadEl);
+    const stored=await uploadToStorage(file);
+    container.removeChild(loadEl);
+    if(!stored){toast('Error al subir: '+file.name,true);continue;}
+    papelTemp[tipo].push(stored);const idx=papelTemp[tipo].length-1;
+    const fi=parseFileItem(stored);
     const wrap=document.createElement('div');wrap.className='img-preview-wrap';
     const isImg=file.type.startsWith('image/');
     if(isImg){
-      const img=document.createElement('img');img.src=b64;img.className='img-preview';img.onclick=()=>openLightbox(b64);wrap.appendChild(img);
+      const img=document.createElement('img');img.src=fi.data;img.className='img-preview';img.onclick=()=>openLightbox(fi.data);wrap.appendChild(img);
     } else {
       const box=document.createElement('div');
       box.style.cssText='width:80px;height:80px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px';
@@ -871,17 +933,17 @@ async function renderPapeleria(){
   }).join('')+'</div>';
 }
 async function uploadPapelDirect(gruaId,tipo,input){
-  // Always fetch current state from Supabase to avoid stale cache
   const {data:dbRow}=await sb.from('papeleria').select('fotos').eq('grua',gruaId).eq('tipo',tipo).maybeSingle();
   const existing=[...(dbRow?.fotos||[])];
   for(const file of input.files){
-    const b64=await fileToBase64(file);
-    existing.push(JSON.stringify({data:b64,name:file.name,type:file.type}));
+    const stored = await uploadToStorage(file);
+    if(stored) existing.push(stored);
+    else { toast('Error al subir: '+file.name, true); }
   }
   const {error}=await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
   if(error){console.error('uploadPapelDirect error:',error);toast('Error al guardar: '+error.message,true);return;}
   input.value='';
-  await loadAll();
+  await loadPapeleria(gruaId);
   renderPapeleria();
   toast('Archivo guardado correctamente');
 }
@@ -1741,11 +1803,11 @@ async function renderOpDocs(){
 }
 
 async function uploadOpDirect(nombre,tipo,input){
-  const {data:ex} = await sb.from('papeleria_operadores').select('fotos').eq('operador',nombre).eq('tipo',tipo).single();
+  const {data:ex} = await sb.from('papeleria_operadores').select('fotos').eq('operador',nombre).eq('tipo',tipo).maybeSingle();
   const existing = ex?.fotos||[];
   for(const file of input.files){
-    const b64=await fileToBase64(file);
-    existing.push(JSON.stringify({data:b64,name:file.name,type:file.type}));
+    const stored=await uploadToStorage(file);
+    if(stored) existing.push(stored);
   }
   await sb.from('papeleria_operadores').upsert({operador:nombre,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
   input.value=''; renderOpDocs(); toast('Archivo guardado');
@@ -1946,6 +2008,69 @@ async function refreshData(){
     if(e.message && !e.message.includes('null')) toast('Error al actualizar: '+e.message, true);
   }
   setTimeout(()=>{ if(icon){icon.style.transform='rotate(0deg)';icon.style.transition='none';} }, 700);
+}
+
+
+// MIGRATION TOOL - copies data from old project to new (run once)
+async function migrateFromOldProject(){
+  const OLD_URL='https://iqilatistlwzapmljodu.supabase.co';
+  const OLD_KEY='sb_publishable_7_MHNw7eyBDmLNt3AAz46g_C2tqkYUd';
+  const oldSb=supabase.createClient(OLD_URL,OLD_KEY);
+  
+  toast('Migrando datos... no cierres la pagina');
+  let errors=0;
+  
+  try {
+    // 1. Migrate gruas (without foto base64 to save space)
+    const {data:gruas_data}=await oldSb.from('gruas').select('id,tipo,chofer,rend,tank,placa,serie,modelo,created_at');
+    if(gruas_data&&gruas_data.length){
+      const {error}=await sb.from('gruas').upsert(gruas_data,{onConflict:'id'});
+      if(error){console.error('gruas migration error:',error);errors++;}
+      else console.log('Gruas migrated:',gruas_data.length);
+    }
+    
+    // 2. Migrate usuarios (except Fatima which already exists)
+    const {data:users_data}=await oldSb.from('usuarios').select('username,password,nombre,rol,activo,created_at');
+    if(users_data){
+      for(const u of users_data){
+        if(u.username==='Fatima') continue; // already created
+        const {error}=await sb.from('usuarios').upsert({...u},{onConflict:'username'});
+        if(error) console.error('user migration error:',u.username,error);
+      }
+      console.log('Usuarios migrated');
+    }
+    
+    // 3. Migrate recargas (without fotos to save space)
+    const {data:rec_data}=await oldSb.from('recargas').select('id,grua,fecha,litros,costo,pxl,odo,km_rec,notas,created_at').limit(500);
+    if(rec_data&&rec_data.length){
+      const cleaned=rec_data.map(r=>({...r,fotos:[]}));
+      const {error}=await sb.from('recargas').upsert(cleaned,{onConflict:'id'});
+      if(error){console.error('recargas migration error:',error);errors++;}
+      else console.log('Recargas migrated:',rec_data.length);
+    }
+    
+    // 4. Migrate mantenimientos (without fotos)
+    const {data:mant_data}=await oldSb.from('mantenimientos').select('id,grua,chofer,tipo,fecha,costo,km,prox,taller,obs,created_at').limit(500);
+    if(mant_data&&mant_data.length){
+      const cleaned=mant_data.map(m=>({...m,fotos:[]}));
+      const {error}=await sb.from('mantenimientos').upsert(cleaned,{onConflict:'id'});
+      if(error){console.error('mant migration error:',error);errors++;}
+      else console.log('Mantenimientos migrated:',mant_data.length);
+    }
+    
+    if(errors===0){
+      await loadAll();renderAll();
+      toast('Migracion completada! '+
+        (gruas_data?.length||0)+' gruas, '+
+        (rec_data?.length||0)+' recargas, '+
+        (mant_data?.length||0)+' mantenimientos');
+    } else {
+      toast('Migracion con '+errors+' errores - revisa la consola', true);
+    }
+  } catch(e){
+    console.error('Migration error:',e);
+    toast('Error en migracion: '+e.message, true);
+  }
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
