@@ -235,7 +235,7 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
   </div>
   <div class="subsection" id="sub-gruas-papeleria">
-    <div class="card">
+    <div class="card admin-only">
       <div class="card-title">&#x2795; Registrar documentos</div>
       <div class="form-grid" style="margin-bottom:18px"><div class="form-group"><label>Grua *</label><select id="papel-reg-grua" onchange="renderPapelUpload()"><option value="">Selecciona una grua</option></select></div></div>
       <div id="papel-upload-sections" style="display:none">
@@ -250,6 +250,9 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div class="card">
       <div class="card-title">&#x1F4C4; Consultar documentos por grua</div>
+      <div id="readonly-banner-papel" style="display:none;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--text-2);margin-bottom:12px">
+        &#x1F441;&#xFE0F; Modo lectura — puedes ver y descargar los documentos pero no modificarlos
+      </div>
       <div class="filters"><select id="papel-filter-grua" onchange="renderPapeleria()"><option value="">Selecciona una grua</option></select></div>
       <div id="papel-content"><p class="empty">Selecciona una grua.</p></div>
     </div>
@@ -261,7 +264,7 @@ tbody tr:hover td{background:var(--surface-2)}
       <button class="subnav-btn" onclick="showOpSub('equipo',this)">&#x1F455; Equipo</button>
     </div>
     <div id="op-sub-docs">
-    <div class="card">
+    <div class="card admin-only">
       <div class="card-title">&#x2795; Registrar documentos de operador</div>
       <div class="form-grid" style="margin-bottom:18px">
         <div class="form-group">
@@ -278,6 +281,9 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div class="card">
       <div class="card-title">&#x1F4C4; Consultar documentos por operador</div>
+      <div id="readonly-banner-op" style="display:none;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--text-2);margin-bottom:12px">
+        &#x1F441;&#xFE0F; Modo lectura — puedes ver y descargar los documentos pero no modificarlos
+      </div>
       <div class="filters">
         <select id="op-filter-nombre" onchange="renderOpDocs()"><option value="">Selecciona un operador</option></select>
       </div>
@@ -286,7 +292,7 @@ tbody tr:hover td{background:var(--surface-2)}
     </div><!-- end op-sub-docs -->
 
     <div id="op-sub-equipo" style="display:none">
-    <div class="card">
+    <div class="card admin-only">
       <div class="card-title">&#x1F455; Registrar equipo entregado al operador</div>
       <div class="form-grid">
         <div class="form-group"><label>Operador *</label><select id="equipo-op"></select></div>
@@ -303,6 +309,9 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div class="card">
       <div class="card-title">&#x1F4CB; Historial de equipo por operador</div>
+      <div id="readonly-banner-equipo" style="display:none;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--text-2);margin-bottom:12px">
+        &#x1F441;&#xFE0F; Modo lectura — puedes consultar el historial pero no modificarlo
+      </div>
       <div class="filters">
         <select id="equipo-filter-op" onchange="renderEquipo()"><option value="">Todos los operadores</option></select>
       </div>
@@ -312,7 +321,7 @@ tbody tr:hover td{background:var(--surface-2)}
   </div><!-- end sub-gruas-operadores -->
   <!-- SUBSECCION HERRAMIENTAS -->
   <div class="subsection" id="sub-gruas-herramientas">
-    <div class="card">
+    <div class="card admin-only">
       <div class="card-title">&#x1F527; Registrar entrega de herramientas</div>
       <div class="form-grid">
         <div class="form-group"><label>Grua *</label><select id="herr-grua"></select></div>
@@ -329,6 +338,9 @@ tbody tr:hover td{background:var(--surface-2)}
     </div>
     <div class="card">
       <div class="card-title">&#x1F4CB; Historial de herramientas</div>
+      <div id="readonly-banner-herr" style="display:none;background:var(--surface-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--text-2);margin-bottom:12px">
+        &#x1F441;&#xFE0F; Modo lectura — puedes consultar el historial pero no modificarlo
+      </div>
       <div class="filters">
         <select id="herr-filter-grua" onchange="renderHerramientas()"><option value="">Todas las gruas</option></select>
       </div>
@@ -528,6 +540,14 @@ async function initApp(){
   document.getElementById('header-date').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('nav-admin').style.display=(currentUser.username==='Fatima')?'flex':'none';
   document.getElementById('card-add-grua').style.display=isAdmin?'block':'none';
+  // Hide registration forms for non-admin, show only read-only sections
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin?'block':'none');
+  document.querySelectorAll('.readonly-visible').forEach(el=>el.style.display='block');
+  // Show readonly banners for non-admin
+  ['papel','herr','op','equipo'].forEach(key=>{
+    const el=document.getElementById('readonly-banner-'+key);
+    if(el) el.style.display=isAdmin?'none':'block';
+  });
   document.getElementById('gas-fecha').value=todayStr();
   document.getElementById('mant-fecha').value=todayStr();
   document.getElementById('herr-fecha').value=todayStr();
@@ -649,7 +669,12 @@ function showSub(section,sub,btn){
   document.querySelectorAll('#sec-'+section+' .subsection').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('#sec-'+section+' .subnav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('sub-'+section+'-'+sub).classList.add('active');if(btn)btn.classList.add('active');
-  if(sub==='papeleria')renderPapeleria();
+  if(sub==='papeleria') renderPapeleria();
+  if(sub==='herramientas') renderHerramientas();
+  if(sub==='operadores'){
+    // refresh selects for non-admin view
+    updateOpSelects();
+  }
 }
 function fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 
