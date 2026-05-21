@@ -451,8 +451,10 @@ tbody tr:hover td{background:var(--surface-2)}
   <div class="section-header"><div><h2>Administrar Usuarios</h2><p>Solo visible para administradores</p></div></div>
   <div class="card" style="border:2px solid var(--accent);margin-bottom:1.5rem">
     <div class="card-title">&#x1F504; Migrar datos del proyecto anterior</div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Importa gruas, recargas y mantenimientos del proyecto viejo. Las fotos no se migran (eran las que saturaban la BD). Ejecuta esto solo una vez.</p>
-    <button class="btn btn-accent" onclick="migrateFromOldProject()">&#x1F504; Iniciar migración de datos</button>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Migra todos los datos Y fotos del proyecto anterior al nuevo. Las fotos se mueven a Storage (no pesan en la BD). Puede tardar 10-20 minutos dependiendo de cuántas fotos haya. <strong>No cierres la página.</strong></p>
+    <button class="btn btn-accent" id="migrate-btn" onclick="migrateFromOldProject()">&#x1F504; Iniciar migración completa con fotos</button>
+    <div id="migrate-status" style="margin-top:12px;font-size:13px;color:var(--text-2);padding:10px;background:var(--surface-2);border-radius:var(--radius);display:none"></div>
+    <script>document.getElementById('migrate-status').style.display='block';</script>
   </div>
   <div class="card">
     <div class="card-title">&#x2795; Agregar usuario</div>
@@ -2011,66 +2013,160 @@ async function refreshData(){
 }
 
 
-// MIGRATION TOOL - copies data from old project to new (run once)
+// MIGRATION TOOL
+const OLD_URL='https://iqilatistlwzapmljodu.supabase.co';
+const OLD_KEY='sb_publishable_7_MHNw7eyBDmLNt3AAz46g_C2tqkYUd';
+
+// Convert base64 to File object for Storage upload
+function base64ToBlob(b64, type='image/jpeg'){
+  try {
+    const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
+    const byteStr = atob(base64Data);
+    const ab = new ArrayBuffer(byteStr.length);
+    const ia = new Uint8Array(ab);
+    for(let i=0;i<byteStr.length;i++) ia[i]=byteStr.charCodeAt(i);
+    return new Blob([ab], {type});
+  } catch(e){ return null; }
+}
+
+// Upload a base64 item to Storage, return new URL JSON string
+async function migrateFileToStorage(item){
+  if(!item) return null;
+  let fi;
+  try { fi = JSON.parse(item); } catch(e){ fi = {data:item, name:'foto.jpg', type:'image/jpeg'}; }
+  // Already a storage URL - no need to migrate
+  if(fi.storage || (fi.data && fi.data.startsWith('http'))) return item;
+  // It's base64 - upload to storage
+  const blob = base64ToBlob(fi.data, fi.type||'image/jpeg');
+  if(!blob) return null;
+  const ext = (fi.name||'file').split('.').pop() || 'jpg';
+  const fileName = 'migrated_' + Date.now() + '_' + Math.random().toString(36).substr(2,6) + '.' + ext;
+  const {data, error} = await sb.storage.from('gruas-fotos').upload(fileName, blob, {
+    contentType: fi.type||'image/jpeg', upsert:false
+  });
+  if(error){ console.error('Storage upload error:', error); return null; }
+  const {data:urlData} = sb.storage.from('gruas-fotos').getPublicUrl(fileName);
+  return JSON.stringify({data: urlData.publicUrl, name: fi.name||fileName, type: fi.type||'image/jpeg', storage:true});
+}
+
+async function migrateFotosArray(fotos){
+  if(!fotos||!fotos.length) return [];
+  const result = [];
+  for(const f of fotos){
+    const migrated = await migrateFileToStorage(f);
+    if(migrated) result.push(migrated);
+  }
+  return result;
+}
+
+let _migrationRunning = false;
 async function migrateFromOldProject(){
-  const OLD_URL='https://iqilatistlwzapmljodu.supabase.co';
-  const OLD_KEY='sb_publishable_7_MHNw7eyBDmLNt3AAz46g_C2tqkYUd';
-  const oldSb=supabase.createClient(OLD_URL,OLD_KEY);
+  if(_migrationRunning){ toast('Migracion en progreso...'); return; }
+  _migrationRunning = true;
+  const btn = document.getElementById('migrate-btn');
+  if(btn) btn.disabled = true;
   
-  toast('Migrando datos... no cierres la pagina');
-  let errors=0;
+  const statusEl = document.getElementById('migrate-status');
+  const setStatus = (msg) => { if(statusEl) statusEl.textContent = msg; toast(msg); console.log(msg); };
+  
+  const oldSb = supabase.createClient(OLD_URL, OLD_KEY);
   
   try {
-    // 1. Migrate gruas (without foto base64 to save space)
-    const {data:gruas_data}=await oldSb.from('gruas').select('id,tipo,chofer,rend,tank,placa,serie,modelo,created_at');
-    if(gruas_data&&gruas_data.length){
-      const {error}=await sb.from('gruas').upsert(gruas_data,{onConflict:'id'});
-      if(error){console.error('gruas migration error:',error);errors++;}
-      else console.log('Gruas migrated:',gruas_data.length);
+    // 1. USUARIOS
+    setStatus('Migrando usuarios...');
+    const {data:users} = await oldSb.from('usuarios').select('*');
+    for(const u of (users||[])){
+      if(u.username==='Fatima') continue;
+      await sb.from('usuarios').upsert({
+        username:u.username, password:u.password, nombre:u.nombre,
+        rol:u.rol, activo:u.activo
+      },{onConflict:'username'});
     }
-    
-    // 2. Migrate usuarios (except Fatima which already exists)
-    const {data:users_data}=await oldSb.from('usuarios').select('username,password,nombre,rol,activo,created_at');
-    if(users_data){
-      for(const u of users_data){
-        if(u.username==='Fatima') continue; // already created
-        const {error}=await sb.from('usuarios').upsert({...u},{onConflict:'username'});
-        if(error) console.error('user migration error:',u.username,error);
-      }
-      console.log('Usuarios migrated');
+    setStatus(`Usuarios migrados: ${(users||[]).length}`);
+
+    // 2. GRUAS (with foto)
+    setStatus('Migrando gruas y fotos principales...');
+    const {data:gruas_old} = await oldSb.from('gruas').select('*');
+    for(const g of (gruas_old||[])){
+      let foto = null;
+      if(g.foto && g.foto.startsWith('data:')){
+        setStatus(`Subiendo foto de grua ${g.id}...`);
+        foto = await migrateFileToStorage(g.foto);
+        if(foto){ const fi=JSON.parse(foto); foto=fi.data; } // store just the URL for main foto
+      } else { foto = g.foto; }
+      await sb.from('gruas').upsert({
+        id:g.id, tipo:g.tipo, chofer:g.chofer, rend:g.rend, tank:g.tank,
+        placa:g.placa, serie:g.serie, modelo:g.modelo, foto, created_at:g.created_at
+      },{onConflict:'id'});
     }
-    
-    // 3. Migrate recargas (without fotos to save space)
-    const {data:rec_data}=await oldSb.from('recargas').select('id,grua,fecha,litros,costo,pxl,odo,km_rec,notas,created_at').limit(500);
-    if(rec_data&&rec_data.length){
-      const cleaned=rec_data.map(r=>({...r,fotos:[]}));
-      const {error}=await sb.from('recargas').upsert(cleaned,{onConflict:'id'});
-      if(error){console.error('recargas migration error:',error);errors++;}
-      else console.log('Recargas migrated:',rec_data.length);
+    setStatus(`Gruas migradas: ${(gruas_old||[]).length}`);
+
+    // 3. RECARGAS (with fotos)
+    setStatus('Migrando recargas...');
+    const {data:recs} = await oldSb.from('recargas').select('*').limit(500);
+    let recCount=0;
+    for(const r of (recs||[])){
+      const fotos = await migrateFotosArray(r.fotos||[]);
+      await sb.from('recargas').upsert({
+        id:r.id, grua:r.grua, fecha:r.fecha, litros:r.litros, costo:r.costo,
+        pxl:r.pxl, odo:r.odo, km_rec:r.km_rec, notas:r.notas, fotos,
+        created_at:r.created_at
+      },{onConflict:'id'});
+      recCount++;
+      if(recCount%5===0) setStatus(`Recargas: ${recCount}/${recs.length}...`);
     }
-    
-    // 4. Migrate mantenimientos (without fotos)
-    const {data:mant_data}=await oldSb.from('mantenimientos').select('id,grua,chofer,tipo,fecha,costo,km,prox,taller,obs,created_at').limit(500);
-    if(mant_data&&mant_data.length){
-      const cleaned=mant_data.map(m=>({...m,fotos:[]}));
-      const {error}=await sb.from('mantenimientos').upsert(cleaned,{onConflict:'id'});
-      if(error){console.error('mant migration error:',error);errors++;}
-      else console.log('Mantenimientos migrated:',mant_data.length);
+    setStatus(`Recargas migradas: ${recCount}`);
+
+    // 4. MANTENIMIENTOS (with fotos)
+    setStatus('Migrando mantenimientos...');
+    const {data:mants} = await oldSb.from('mantenimientos').select('*').limit(500);
+    let mantCount=0;
+    for(const m of (mants||[])){
+      const fotos = await migrateFotosArray(m.fotos||[]);
+      await sb.from('mantenimientos').upsert({
+        id:m.id, grua:m.grua, chofer:m.chofer, tipo:m.tipo, fecha:m.fecha,
+        costo:m.costo, km:m.km, prox:m.prox, taller:m.taller, obs:m.obs,
+        fotos, created_at:m.created_at
+      },{onConflict:'id'});
+      mantCount++;
+      if(mantCount%5===0) setStatus(`Mantenimientos: ${mantCount}/${mants.length}...`);
     }
-    
-    if(errors===0){
-      await loadAll();renderAll();
-      toast('Migracion completada! '+
-        (gruas_data?.length||0)+' gruas, '+
-        (rec_data?.length||0)+' recargas, '+
-        (mant_data?.length||0)+' mantenimientos');
-    } else {
-      toast('Migracion con '+errors+' errores - revisa la consola', true);
+    setStatus(`Mantenimientos migrados: ${mantCount}`);
+
+    // 5. PAPELERIA (with fotos - heaviest table)
+    setStatus('Migrando papeleria (puede tardar varios minutos)...');
+    const {data:papel} = await oldSb.from('papeleria').select('*');
+    let papelCount=0;
+    for(const p of (papel||[])){
+      const fotos = await migrateFotosArray(p.fotos||[]);
+      await sb.from('papeleria').upsert({
+        grua:p.grua, tipo:p.tipo, fotos, updated_at:p.updated_at
+      },{onConflict:'grua,tipo'});
+      papelCount++;
+      setStatus(`Papeleria: ${papelCount}/${papel.length}...`);
     }
+
+    // 6. PAPELERIA OPERADORES
+    setStatus('Migrando documentos de operadores...');
+    const {data:papel_op} = await oldSb.from('papeleria_operadores').select('*');
+    for(const p of (papel_op||[])){
+      const fotos = await migrateFotosArray(p.fotos||[]);
+      await sb.from('papeleria_operadores').upsert({
+        operador:p.operador, tipo:p.tipo, fotos, updated_at:p.updated_at
+      },{onConflict:'operador,tipo'});
+    }
+
+    await loadAll(); renderAll();
+    setStatus('✅ Migracion completa con todas las fotos!');
+    toast('Migracion completada con exito');
+
   } catch(e){
-    console.error('Migration error:',e);
+    console.error('Migration error:', e);
+    setStatus('Error: '+e.message);
     toast('Error en migracion: '+e.message, true);
   }
+  _migrationRunning = false;
+  if(btn) btn.disabled = false;
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
