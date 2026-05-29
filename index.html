@@ -468,11 +468,10 @@ tbody tr:hover td{background:var(--surface-2)}
 <div class="section" id="sec-admin">
   <div class="section-header"><div><h2>Administrar Usuarios</h2><p>Solo visible para administradores</p></div></div>
   <div class="card" style="border:2px solid var(--accent);margin-bottom:1.5rem">
-    <div class="card-title">&#x1F504; Migrar datos del proyecto anterior</div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Migra todos los datos Y fotos del proyecto anterior al nuevo. Las fotos se mueven a Storage (no pesan en la BD). Puede tardar 10-20 minutos dependiendo de cuántas fotos haya. <strong>No cierres la página.</strong></p>
-    <button class="btn btn-accent" id="migrate-btn" onclick="migrateFromOldProject()">&#x1F504; Iniciar migración completa con fotos</button>
-    <div id="migrate-status" style="margin-top:12px;font-size:13px;color:var(--text-2);padding:10px;background:var(--surface-2);border-radius:var(--radius);display:none"></div>
-    <script>document.getElementById('migrate-status').style.display='block';</script>
+    <div class="card-title">&#x1F500; Fusionar proyectos</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Copia los registros del proyecto <strong>viejo</strong> que no existan en el proyecto <strong>actual</strong> — sin borrar ni duplicar nada. Grúas, recargas, mantenimientos y usuarios. Las fotos se migran a Storage.</p>
+    <button class="btn btn-accent" id="merge-btn" onclick="mergeFromOldProject()">&#x1F500; Fusionar datos del proyecto viejo</button>
+    <div id="merge-status" style="margin-top:12px;font-size:13px;color:var(--text-2);padding:10px;background:var(--surface-2);border-radius:var(--radius);display:none"></div>
   </div>
   <div class="card">
     <div class="card-title">&#x2795; Agregar usuario</div>
@@ -976,31 +975,67 @@ async function savePapelTemp(){
   }
   papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]};
   ['prev-poliza','prev-tarjeta','prev-verificacion','prev-factura'].forEach(id=>document.getElementById(id).innerHTML='');
-  await loadAll();renderPapeleria();toast('Documentos guardados correctamente');
+  toast('Documentos guardados correctamente');
+  // Sync in background
+  loadPapeleria(gruaId).then(()=>renderPapeleria());
 }
 function renderPapelUpload(){const gId=document.getElementById('papel-reg-grua').value;document.getElementById('papel-upload-sections').style.display=gId?'block':'none'}
 async function renderPapeleria(){
-  const gruaId=document.getElementById('papel-filter-grua').value;const el=document.getElementById('papel-content');
-  if(!gruaId){el.innerHTML='<p class="empty">Selecciona una grua para ver sus documentos.</p>';return}
+  const gruaId=document.getElementById('papel-filter-grua').value;
+  const el=document.getElementById('papel-content');
+  const TIPOS=[{key:'poliza',label:'Poliza de Seguro',icon:'&#x1F6E1;&#xFE0F;'},{key:'tarjeta',label:'Tarjeta de Circulacion',icon:'&#x1F4CB;'},{key:'verificacion',label:'Verificacion',icon:'&#x2705;'},{key:'factura',label:'Factura de la Grua',icon:'&#x1F9FE;'},{key:'fotos_grua',label:'Fotos de la Grua',icon:'&#x1F4F8;'}];
+
+  const renderPapelItem=(f,i,gId,tKey)=>{
+    const fi=parseFileItem(f);
+    const isImg=fi&&fi.type&&fi.type.startsWith('image/');
+    const src=fi?fi.data:f;const name=fi?fi.name:'archivo';
+    const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
+    const preview=isImg
+      ?`<img src="${src}" class="papel-img" onclick="openLightbox('${src}')"/>`
+      :`<div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:70px;height:70px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px;cursor:pointer"><span style="font-size:22px">&#x1F4C4;</span><span style="font-size:9px;color:var(--navy);text-align:center;word-break:break-all;line-height:1.1;font-weight:600">${name.length>12?name.substring(0,10)+'...':name}</span></div>`;
+    return`<div style="position:relative">${preview}${isAdmin?`<button class="img-remove" onclick="deletePapelFoto('${gId}','${tKey}',${i})">x</button>`:''}</div>`;
+  };
+
+  const renderGruaCard=(g)=>{
+    const p=papeleria[g.id]||{};
+    const totalDocs=TIPOS.reduce((a,t)=>a+(p[t.key]||[]).length,0);
+    return`<div style="margin-bottom:2rem">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)">
+        ${g.foto?`<img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0" onclick="openLightbox('${g.foto}')"/>`:'<div style="width:60px;height:50px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">&#x1F69B;</div>'}
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:15px">${g.id}</div>
+          <div style="font-size:13px;color:var(--text-2)">${g.chofer||'Sin chofer'} &mdash; ${g.tipo||''}</div>
+        </div>
+        <span class="badge ${totalDocs>0?'badge-green':'badge-gray'}">${totalDocs} archivo${totalDocs!==1?'s':''}</span>
+      </div>
+      <div class="papel-grid">
+        ${TIPOS.map(t=>{
+          const fotos=p[t.key]||[];
+          return`<div class="papel-card">
+            <div class="papel-card-title"><span>${t.icon} ${t.label}</span><span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span></div>
+            <div class="papel-imgs">${fotos.length?fotos.map((f,i)=>renderPapelItem(f,i,g.id,t.key)).join(''):'<p class="papel-empty">Sin archivos aun</p>'}</div>
+            ${isAdmin?`<label class="upload-btn-label">&#x1F4CE; Agregar archivo<input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="uploadPapelDirect('${g.id}','${t.key}',this)"/></label>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  };
+
+  // ALL GRUAS
+  if(!gruaId){
+    el.innerHTML='<p class="empty">Cargando documentos de todas las gruas...</p>';
+    await loadPapeleria(); // load all
+    if(!gruas.length){el.innerHTML='<p class="empty">Sin gruas registradas.</p>';return}
+    el.innerHTML=gruas.map(g=>renderGruaCard(g)).join('<hr style="border:none;border-top:2px solid var(--border);margin:1.5rem 0"/>');
+    return;
+  }
+
+  // SINGLE GRUA
   el.innerHTML='<p class="empty">Cargando documentos...</p>';
   await loadPapeleria(gruaId);
-  const p=papeleria[gruaId]||{};const g=gruas.find(x=>x.id===gruaId);
-  const TIPOS=[{key:'poliza',label:'Poliza de Seguro',icon:'&#x1F6E1;&#xFE0F;'},{key:'tarjeta',label:'Tarjeta de Circulacion',icon:'&#x1F4CB;'},{key:'verificacion',label:'Verificacion',icon:'&#x2705;'},{key:'factura',label:'Factura de la Grua',icon:'&#x1F9FE;'},{key:'fotos_grua',label:'Fotos de la Grua',icon:'&#x1F4F8;'}];
-  el.innerHTML=(g&&g.foto?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)"><img src="${g.foto}" style="width:60px;height:50px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="openLightbox('${g.foto}')"/><div><div style="font-weight:600;font-size:15px">${g.id}</div><div style="font-size:13px;color:var(--text-2)">${g.chofer||'Sin chofer asignado'} &mdash; ${g.tipo}</div></div></div>`:'')+
-  '<div class="papel-grid">'+TIPOS.map(t=>{
-    const fotos=p[t.key]||[];
-    const renderPapelItem=(f,i)=>{
-  const fi=parseFileItem(f);
-  const isImg=fi&&fi.type&&fi.type.startsWith('image/');
-  const src=fi?fi.data:f;
-  const name=fi?fi.name:'archivo';
-  const encodedF=encodeURIComponent(typeof f==='string'?f:JSON.stringify(f));
-  const preview=isImg
-    ?`<img src="${src}" class="papel-img" onclick="openLightbox('${src}')"/>`
-    :`<div onclick="openFile(decodeURIComponent('${encodedF}'))" style="width:70px;height:70px;background:#e8eef7;border:1px solid #c5d3ea;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px;cursor:pointer" title="Abrir ${name}"><span style="font-size:22px">&#x1F4C4;</span><span style="font-size:9px;color:var(--navy);text-align:center;word-break:break-all;line-height:1.1;font-weight:600">${name.length>12?name.substring(0,10)+'...':name}</span></div>`;
-  return`<div style="position:relative">${preview}${isAdmin?`<button class="img-remove" onclick="deletePapelFoto('${gruaId}','${t.key}',${i})">x</button>`:''}</div>`;
-};return`<div class="papel-card"><div class="papel-card-title"><span>${t.icon} ${t.label}</span><span class="badge ${fotos.length?'badge-green':'badge-gray'}">${fotos.length}</span></div><div class="papel-imgs">${fotos.length?fotos.map((f,i)=>renderPapelItem(f,i)).join(''):'<p class="papel-empty">Sin archivos aun</p>'}</div><label class="upload-btn-label">&#x1F4CE; Agregar archivo<input type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple style="display:none" onchange="uploadPapelDirect('${gruaId}','${t.key}',this)"/></label></div>`;
-  }).join('')+'</div>';
+  const g=gruas.find(x=>x.id===gruaId);
+  if(!g){el.innerHTML='<p class="empty">Grua no encontrada.</p>';return}
+  el.innerHTML=renderGruaCard(g);
 }
 async function uploadPapelDirect(gruaId,tipo,input){
   const {data:dbRow}=await sb.from('papeleria').select('fotos').eq('grua',gruaId).eq('tipo',tipo).maybeSingle();
@@ -1013,9 +1048,8 @@ async function uploadPapelDirect(gruaId,tipo,input){
   const {error}=await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
   if(error){console.error('uploadPapelDirect error:',error);toast('Error al guardar: '+error.message,true);return;}
   input.value='';
-  await loadPapeleria(gruaId);
-  renderPapeleria();
   toast('Archivo guardado correctamente');
+  loadPapeleria(gruaId).then(()=>renderPapeleria());
 }
 async function deletePapelFoto(gruaId,tipo,idx){
   if(!isAdmin)return;papeleria[gruaId][tipo].splice(idx,1);
@@ -1038,23 +1072,33 @@ async function addRecarga(){
   console.log('Saving recarga with fotos:', fotos.length);
   const{error}=await sb.from('recargas').insert([{grua,fecha:document.getElementById('gas-fecha').value,litros,costo:parseFloat(document.getElementById('gas-costo').value)||0,pxl:parseFloat(document.getElementById('gas-pxl').value)||0,odo,km_rec:kmRec,notas:document.getElementById('gas-notas').value.trim(),fotos}]);
   if(error)return toast('Error al guardar: '+error.message,true);
+  const fotosGuardadas=fotos.length;
+  const fechaGuardada=document.getElementById('gas-fecha').value;
+  // Save fluidos before clearing form
+  await saveFluidosInline(grua, fechaGuardada);
+  // Clear form immediately
   ['gas-litros','gas-costo','gas-pxl','gas-odo','gas-km-rec','gas-notas'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('gas-fecha').value=todayStr();
-  document.getElementById('gas-km-auto').textContent='';document.getElementById('gas-rend-preview').style.display='none';
-  document.getElementById('gas-pxl-auto').textContent='';document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
-  // Also save any active fluidos
-  await saveFluidosInline(grua, document.getElementById('gas-fecha').value);
-  const fotosGuardadas=fotos.length;
-  await loadAll();renderGas();
-  if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  document.getElementById('gas-km-auto').textContent='';
+  document.getElementById('gas-rend-preview').style.display='none';
+  document.getElementById('gas-pxl-auto').textContent='';
+  document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
   if(document.getElementById('fluidos-toggles'))initFluidos();
   toast('Recarga guardada'+(fotosGuardadas>0?' con '+fotosGuardadas+' archivo(s)':''));
+  // Sync in background without blocking UI
+  loadAll().then(()=>{
+    renderGas();
+    if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  });
 }
 async function deleteRecarga(id){
   if(!isAdmin)return;if(!confirm('Eliminar esta recarga?'))return;
-  await sb.from('recargas').delete().eq('id',id);await loadAll();renderGas();
+  await sb.from('recargas').delete().eq('id',id);
+  recargas=recargas.filter(r=>r.id!==id);
+  renderGas();
   if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga eliminada');
+  loadAll().then(()=>renderGas());
 }
 function renderGas(){
   const totalL=recargas.reduce((a,r)=>a+(r.litros||0),0);const totalC=recargas.reduce((a,r)=>a+(r.costo||0),0);
@@ -1115,19 +1159,28 @@ async function addMant(){
   const fotos=mantFotosTemp.filter(Boolean);
   const{error}=await sb.from('mantenimientos').insert([{grua,chofer:document.getElementById('mant-chofer').value.trim(),tipo:document.getElementById('mant-tipo').value,fecha:document.getElementById('mant-fecha').value,costo:parseFloat(document.getElementById('mant-costo').value)||0,km:parseFloat(document.getElementById('mant-km').value)||null,prox:document.getElementById('mant-prox').value.trim(),taller:document.getElementById('mant-taller').value.trim(),obs:document.getElementById('mant-obs').value.trim(),fotos}]);
   if(error)return toast('Error: '+error.message,true);
+  const fotasMant=fotos.length;
+  // Clear form immediately
   ['mant-costo','mant-km','mant-prox','mant-taller','mant-obs','mant-chofer'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('mant-fecha').value=todayStr();
   document.getElementById('mant-fotos-preview').innerHTML='';mantFotosTemp=[];
-  const fotasMant=fotos.length;
-  await loadAll();renderMant();
-  if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
+  document.getElementById('mant-km-warn').style.display='none';
+  document.getElementById('mant-km').style.borderColor='';
   toast('Servicio guardado'+(fotasMant>0?' con '+fotasMant+' archivo(s)':''));
+  // Sync in background
+  loadAll().then(()=>{
+    renderMant();
+    if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
+  });
 }
 async function deleteMant(id){
   if(!isAdmin)return;if(!confirm('Eliminar este servicio?'))return;
-  await sb.from('mantenimientos').delete().eq('id',id);await loadAll();renderMant();
+  await sb.from('mantenimientos').delete().eq('id',id);
+  mantenimientos=mantenimientos.filter(m=>m.id!==id);
+  renderMant();
   if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio eliminado');
+  loadAll().then(()=>renderMant());
 }
 function renderMant(){
   const totalC=mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
@@ -1334,12 +1387,8 @@ async function saveEditGrua() {
   const gIdx=gruas.findIndex(g=>g.id===originalId);
   if(gIdx!==-1 && newId===originalId) gruas[gIdx]={...gruas[gIdx],...updateFields};
   renderAll();
-  await loadAll();
-  renderAll();
-  // initFluidos called when gas section opens (elements may not be in DOM yet)
-  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
   toast('Grua actualizada correctamente');
+  loadAll().then(()=>renderAll());
 }
 
 
@@ -1445,13 +1494,11 @@ async function saveEditMant(){
   editMantFotosTemp=[];
   document.getElementById('modal-edit-mant').classList.remove('open');
   renderAll();
-  await loadAll();
-  renderAll();
-  // initFluidos called when gas section opens (elements may not be in DOM yet)
-  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
-  if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio actualizado correctamente');
+  loadAll().then(()=>{
+    renderAll();
+    if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
+  });
 }
 
 
@@ -1564,13 +1611,11 @@ async function saveEditRecarga(){
   editRecFotosTemp=[];
   document.getElementById('modal-edit-recarga').classList.remove('open');
   renderAll();
-  await loadAll();
-  renderAll();
-  // initFluidos called when gas section opens (elements may not be in DOM yet)
-  // Auto-refresh every 5 minutes (300s) - prevents overloading Supabase
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>{ renderAll(); }); }, 300000);
-  if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga actualizada correctamente');
+  loadAll().then(()=>{
+    renderAll();
+    if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
+  });
 }
 
 
@@ -2243,6 +2288,104 @@ function showObsModal(text){
   if(!text) return;
   document.getElementById('modal-obs-text').textContent = text;
   document.getElementById('modal-obs').classList.add('open');
+}
+
+
+// MERGE from old project - copies missing records
+async function mergeFromOldProject(){
+  if(_migrationRunning){ toast('Proceso en curso...'); return; }
+  _migrationRunning = true;
+  const btn = document.getElementById('merge-btn');
+  if(btn) btn.disabled = true;
+  const statusEl = document.getElementById('merge-status');
+  const setStatus = (msg) => { 
+    if(statusEl){ statusEl.style.display='block'; statusEl.textContent=msg; }
+    console.log(msg);
+  };
+
+  const oldSb = supabase.createClient(OLD_URL, OLD_KEY);
+  let added = {gruas:0, recargas:0, mant:0, usuarios:0};
+
+  try {
+    setStatus('Comparando gruas...');
+    const {data: oldGruas} = await oldSb.from('gruas').select('*');
+    const existingIds = new Set(gruas.map(g=>g.id));
+    for(const g of (oldGruas||[])){
+      if(existingIds.has(g.id)) continue; // already exists
+      // Upload foto to storage if base64
+      let foto = g.foto;
+      if(foto && foto.startsWith('data:')){
+        setStatus('Subiendo foto de grua '+g.id+'...');
+        const stored = await migrateFileToStorage(foto);
+        if(stored){ const fi=JSON.parse(stored); foto=fi.data; }
+      }
+      const {error} = await sb.from('gruas').insert([{
+        id:g.id, tipo:g.tipo, chofer:g.chofer, rend:g.rend, tank:g.tank,
+        placa:g.placa, serie:g.serie, modelo:g.modelo, foto, created_at:g.created_at
+      }]);
+      if(!error) added.gruas++;
+      else console.error('grua insert error:', g.id, error);
+    }
+    setStatus('Gruas nuevas agregadas: '+added.gruas);
+
+    setStatus('Comparando recargas...');
+    const {data: oldRecs} = await oldSb.from('recargas').select('*').limit(500);
+    const {data: newRecs} = await sb.from('recargas').select('id');
+    const existingRecIds = new Set((newRecs||[]).map(r=>r.id));
+    for(const r of (oldRecs||[])){
+      if(existingRecIds.has(r.id)) continue;
+      const fotos = await migrateFotosArray(r.fotos||[]);
+      const {error} = await sb.from('recargas').insert([{
+        id:r.id, grua:r.grua, fecha:r.fecha, litros:r.litros, costo:r.costo,
+        pxl:r.pxl, odo:r.odo, km_rec:r.km_rec, notas:r.notas, fotos,
+        created_at:r.created_at
+      }]);
+      if(!error) added.recargas++;
+      else console.error('recarga insert error:', r.id, error);
+    }
+    setStatus('Recargas nuevas agregadas: '+added.recargas);
+
+    setStatus('Comparando mantenimientos...');
+    const {data: oldMants} = await oldSb.from('mantenimientos').select('*').limit(500);
+    const {data: newMants} = await sb.from('mantenimientos').select('id');
+    const existingMantIds = new Set((newMants||[]).map(m=>m.id));
+    for(const m of (oldMants||[])){
+      if(existingMantIds.has(m.id)) continue;
+      const fotos = await migrateFotosArray(m.fotos||[]);
+      const {error} = await sb.from('mantenimientos').insert([{
+        id:m.id, grua:m.grua, chofer:m.chofer, tipo:m.tipo, fecha:m.fecha,
+        costo:m.costo, km:m.km, prox:m.prox, taller:m.taller, obs:m.obs,
+        fotos, created_at:m.created_at
+      }]);
+      if(!error) added.mant++;
+    }
+    setStatus('Mantenimientos nuevos: '+added.mant);
+
+    setStatus('Comparando usuarios...');
+    const {data: oldUsers} = await oldSb.from('usuarios').select('*');
+    const {data: newUsers} = await sb.from('usuarios').select('username');
+    const existingUsers = new Set((newUsers||[]).map(u=>u.username));
+    for(const u of (oldUsers||[])){
+      if(existingUsers.has(u.username)) continue;
+      await sb.from('usuarios').insert([{
+        username:u.username, password:u.password, nombre:u.nombre,
+        rol:u.rol, activo:u.activo
+      }]);
+      added.usuarios++;
+    }
+    setStatus('Usuarios nuevos: '+added.usuarios);
+
+    await loadAll(); renderAll();
+    setStatus('✅ Fusion completa — Gruas: +'+added.gruas+', Recargas: +'+added.recargas+', Mantenimientos: +'+added.mant+', Usuarios: +'+added.usuarios);
+    toast('Fusion completada correctamente');
+
+  } catch(e){
+    console.error('Merge error:', e);
+    setStatus('Error: '+e.message);
+    toast('Error en fusion: '+e.message, true);
+  }
+  _migrationRunning = false;
+  if(btn) btn.disabled = false;
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
