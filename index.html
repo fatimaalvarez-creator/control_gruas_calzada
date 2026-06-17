@@ -544,6 +544,21 @@ tbody tr:hover td{background:var(--surface-2)}
 </div>
 
 <!-- MODAL OBSERVACIONES -->
+<!-- MODAL PROXIMOS SERVICIOS -->
+<div class="modal-overlay" id="modal-prox" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="max-width:820px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">&#x1F514; Proximos servicios programados (<span id="modal-prox-count">0</span>)</div>
+      <button class="modal-close" onclick="document.getElementById('modal-prox').classList.remove('open')">&#x2715;</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Estos son los servicios que tienen un proximo mantenimiento anotado. Revisa la grua, el tipo de servicio y cuando toca el siguiente.</p>
+    <div id="modal-prox-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-prox').classList.remove('open')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-obs" onclick="document.getElementById('modal-obs').classList.remove('open')">
   <div class="modal-box" style="max-width:500px" onclick="event.stopPropagation()">
     <div class="modal-header"><div class="modal-title">&#x1F4DD; Observaciones completas</div><button class="modal-close" onclick="document.getElementById('modal-obs').classList.remove('open')">&#x2715;</button></div>
@@ -1158,7 +1173,7 @@ function renderMant(){
   const totalC=mantenimientos.reduce((a,m)=>a+(m.costo||0),0);
   const hoyM=todayStr();const mantHoy=mantenimientos.filter(m=>m.fecha===hoyM);
   const costoHoyM=mantHoy.reduce((a,m)=>a+(m.costo||0),0);
-  document.getElementById('mant-stats').innerHTML=`<div class="stat accent"><div class="stat-label">&#x1F4C5; Servicios hoy</div><div class="stat-value">${mantHoy.length}</div><div class="stat-sub">${new Date().toLocaleDateString('es-MX',{weekday:'long'})}</div></div><div class="stat red"><div class="stat-label">&#x1F4B0; Gasto hoy</div><div class="stat-value">${fmtM(costoHoyM)}</div><div class="stat-sub">Total: ${fmtM(totalC)}</div></div><div class="stat green"><div class="stat-label">Con proximo servicio</div><div class="stat-value">${mantenimientos.filter(m=>m.prox).length}</div></div><div class="stat"><div class="stat-label">Total servicios</div><div class="stat-value">${mantenimientos.length}</div><div class="stat-sub">historico</div></div>`;
+  document.getElementById('mant-stats').innerHTML=`<div class="stat accent"><div class="stat-label">&#x1F4C5; Servicios hoy</div><div class="stat-value">${mantHoy.length}</div><div class="stat-sub">${new Date().toLocaleDateString('es-MX',{weekday:'long'})}</div></div><div class="stat red"><div class="stat-label">&#x1F4B0; Gasto hoy</div><div class="stat-value">${fmtM(costoHoyM)}</div><div class="stat-sub">Total: ${fmtM(totalC)}</div></div><div class="stat green" onclick="showProxServiciosModal()" style="cursor:pointer" title="Clic para ver el detalle"><div class="stat-label">Con proximo servicio</div><div class="stat-value">${mantenimientos.filter(m=>m.prox).length}</div><div class="stat-sub" style="color:var(--green);font-weight:600">&#x1F441;&#xFE0F; Clic para ver</div></div><div class="stat"><div class="stat-label">Total servicios</div><div class="stat-value">${mantenimientos.length}</div><div class="stat-sub">historico</div></div>`;
   const sm=document.getElementById('mant-grua');const sv=sm.value;sm.innerHTML='<option value="">Selecciona</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}${g.chofer?' - '+g.chofer:''}</option>`).join('');sm.value=sv;
   const fg=document.getElementById('mant-filter-grua');const fgv=fg.value;fg.innerHTML='<option value="">Todas las gruas</option>'+gruas.map(g=>`<option value="${g.id}">${g.id}</option>`).join('');fg.value=fgv;
   const ft=document.getElementById('mant-filter-tipo').value;
@@ -1774,130 +1789,38 @@ function showObsModal(text){
   document.getElementById('modal-obs-text').textContent=text;
   document.getElementById('modal-obs').classList.add('open');
 }
+// ══ PROXIMOS SERVICIOS ══
+// Lista todos los mantenimientos que tienen un "proximo servicio" registrado.
+function showProxServiciosModal(){
+  const conProx=mantenimientos.filter(m=>m.prox&&m.prox.trim());
+  const el=document.getElementById('modal-prox-content');
+  document.getElementById('modal-prox-count').textContent=conProx.length;
+  if(!conProx.length){
+    el.innerHTML='<p class="empty">No hay servicios con proximo servicio registrado.</p>';
+    document.getElementById('modal-prox').classList.add('open');
+    return;
+  }
+  // Ordenar por grua para agruparlos visualmente
+  const lista=[...conProx].sort((a,b)=>(a.grua||'').localeCompare(b.grua||'')||(b.fecha||'').localeCompare(a.fecha||''));
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Grua</th><th>Chofer</th><th>Servicio realizado</th><th>Fecha</th><th>Km</th><th>&#x1F514; Proximo servicio</th><th>Taller</th></tr></thead><tbody>'+
+    lista.map(m=>{
+      const g=gruas.find(x=>x.id===m.grua);
+      const chofer=m.chofer||(g&&g.chofer)||'&#8212;';
+      return`<tr>
+        <td><span class="grua-chip">${m.grua}</span></td>
+        <td>${chofer}</td>
+        <td><span class="badge badge-navy">${m.tipo}</span></td>
+        <td class="mono" style="font-size:12px">${fmtD(m.fecha)}</td>
+        <td class="mono">${m.km?fmtN(m.km)+' km':'&#8212;'}</td>
+        <td><span class="badge badge-amber" style="white-space:normal;text-align:left">${m.prox}</span></td>
+        <td class="truncate" title="${m.taller||''}">${m.taller||'&#8212;'}</td>
+      </tr>`;
+    }).join('')+'</tbody></table></div>';
+  document.getElementById('modal-prox').classList.add('open');
+}
+
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
 </script>
 
-<!-- MODAL EDICION GRUA -->
-<div class="modal-overlay" id="modal-edit-grua" onclick="closeEditModal(event)">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">&#x270F;&#xFE0F; Editar grua</div>
-      <button class="modal-close" onclick="closeEditModal()">&#x2715;</button>
-    </div>
-    <input type="hidden" id="edit-g-id-original"/>
-    <div class="form-grid">
-      <div class="form-group"><label>ID / Nombre *</label><input id="edit-g-id" type="text"/></div>
-      <div class="form-group"><label>Tipo de grua</label><select id="edit-g-tipo"><option>Plataforma</option><option>Grua de arrastre</option><option>Grua de carga</option><option>Grua articulada</option><option>Grua hidraulica</option><option>Otro</option></select></div>
-      <div class="form-group"><label>Nombre del chofer</label><input id="edit-g-chofer" type="text" placeholder="Ej. Juan Perez"/></div>
-      <div class="form-group"><label>Rendimiento (km/L)</label><input id="edit-g-rend" type="number" min="0" step="0.1"/></div>
-      <div class="form-group"><label>Capacidad tanque (L)</label><input id="edit-g-tank" type="number" min="0"/></div>
-      <div class="form-group"><label>Placa / Num. economico</label><input id="edit-g-placa" type="text"/></div>
-      <div class="form-group"><label>Numero de serie</label><input id="edit-g-serie" type="text"/></div>
-      <div class="form-group"><label>Marca / Modelo</label><input id="edit-g-modelo" type="text"/></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">Foto principal de la grua</label>
-      <div id="edit-foto-current" style="margin-bottom:8px"></div>
-      <input id="edit-g-foto-input" type="file" accept="image/*" onchange="previewEditFoto(this)"/>
-      <div id="edit-foto-preview" style="margin-top:8px;display:none"><img id="edit-foto-img" src="" style="width:130px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Agregar mas fotos de la grua (se suman a las existentes)</label>
-      <div id="edit-fotos-extra-current" style="margin-bottom:8px"></div>
-      <input id="edit-g-fotos-extra-input" type="file" accept="image/*" multiple onchange="previewFotos('edit-g-fotos-extra-input','edit-g-fotos-extra-preview','editGruaFotosExtraTemp')"/>
-      <div class="img-preview-grid" id="edit-g-fotos-extra-preview"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditModal()">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveEditGrua()">&#x2713; Guardar cambios</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL EDICION MANTENIMIENTO -->
-<div class="modal-overlay" id="modal-edit-mant" onclick="closeEditMantModal(event)">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">&#x270F;&#xFE0F; Editar servicio de mantenimiento</div>
-      <button class="modal-close" onclick="closeEditMantModal()">&#x2715;</button>
-    </div>
-    <input type="hidden" id="edit-mant-id"/>
-    <div class="form-grid">
-      <div class="form-group"><label>Grua *</label><select id="edit-mant-grua" onchange="autoFillEditMantChofer()"></select></div>
-      <div class="form-group"><label>Chofer</label><input id="edit-mant-chofer" type="text" placeholder="Ej. Juan Perez"/></div>
-      <div class="form-group"><label>Tipo de servicio *</label>
-        <select id="edit-mant-tipo">
-          <option>Cambio de aceite</option><option>Servicio electrico</option><option>Cambio de llantas</option>
-          <option>Cambio de filtro de aire</option><option>Cambio de filtro de combustible</option>
-          <option>Frenos</option><option>Suspension</option><option>Transmision</option>
-          <option>Radiador / Refrigeracion</option><option>Revision general</option>
-          <option>Afinacion</option><option>Bateria</option><option>Lamineria y Pintura</option>
-          <option>Sistema Hidraulico</option><option>Tapiceria</option><option>Embrague</option><option>Otro</option>
-        </select>
-      </div>
-      <div class="form-group"><label>Fecha *</label><input id="edit-mant-fecha" type="date"/></div>
-      <div class="form-group"><label>Costo ($)</label><input id="edit-mant-costo" type="number" min="0" step="0.01"/></div>
-      <div class="form-group"><label>Km al momento</label><input id="edit-mant-km" type="number" min="0"/></div>
-      <div class="form-group"><label>Proximo servicio</label><input id="edit-mant-prox" type="text" placeholder="Ej. 25000 km"/></div>
-      <div class="form-group"><label>Taller / Tecnico</label><input id="edit-mant-taller" type="text"/></div>
-      <div class="form-group full"><label>Observaciones</label><input id="edit-mant-obs" type="text"/></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Fotos del servicio</label>
-      <div id="edit-mant-fotos-current" style="margin-bottom:8px"></div>
-      <input id="edit-mant-fotos-input" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewEditMantFotos(this)"/>
-      <div class="img-preview-grid" id="edit-mant-fotos-preview"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditMantModal()">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveEditMant()">&#x2713; Guardar cambios</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL EDICION RECARGA -->
-<div class="modal-overlay" id="modal-edit-recarga" onclick="closeEditRecargaModal(event)">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">&#x270F;&#xFE0F; Editar recarga de gasolina</div>
-      <button class="modal-close" onclick="closeEditRecargaModal()">&#x2715;</button>
-    </div>
-    <input type="hidden" id="edit-rec-id"/>
-    <div class="form-grid">
-      <div class="form-group"><label>Grua *</label><select id="edit-rec-grua"></select></div>
-      <div class="form-group"><label>Fecha *</label><input id="edit-rec-fecha" type="date"/></div>
-      <div class="form-group"><label>Litros cargados *</label><input id="edit-rec-litros" type="number" min="0" step="0.1" oninput="calcEditRecCosto()"/></div>
-      <div class="form-group"><label>Costo total ($)</label><input id="edit-rec-costo" type="number" min="0" step="0.01" oninput="calcEditRecCosto()"/><div class="costo-auto" id="edit-rec-pxl-auto"></div></div>
-      <div class="form-group"><label>Precio por litro ($/L)</label><input id="edit-rec-pxl" type="number" min="0" step="0.01" oninput="calcEditRecTotal()"/></div>
-      <div class="form-group"><label>Odometro tablero (km)</label><input id="edit-rec-odo" type="number" min="0"/></div>
-      <div class="form-group"><label>Km recorridos</label><input id="edit-rec-kmrec" type="number" min="0" step="1"/></div>
-      <div class="form-group"><label>Estacion / Ubicacion</label><input id="edit-rec-notas" type="text" placeholder="Ej. Pemex Av. Vallarta"/></div>
-    </div>
-    <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">&#x1F4F8; Fotos del ticket</label>
-      <div id="edit-rec-fotos-current" style="margin-bottom:8px"></div>
-      <input id="edit-rec-fotos-input" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" multiple onchange="previewEditRecFotos(this)"/>
-      <div class="img-preview-grid" id="edit-rec-fotos-preview"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditRecargaModal()">Cancelar</button>
-      <button class="btn btn-accent" onclick="saveEditRecarga()">&#x2713; Guardar cambios</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL OBSERVACIONES -->
-<div class="modal-overlay" id="modal-obs" onclick="document.getElementById('modal-obs').classList.remove('open')">
-  <div class="modal-box" style="max-width:500px" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">&#x1F4DD; Observaciones completas</div>
-      <button class="modal-close" onclick="document.getElementById('modal-obs').classList.remove('open')">&#x2715;</button>
-    </div>
-    <div id="modal-obs-text" style="font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;padding:8px 0"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="document.getElementById('modal-obs').classList.remove('open')">Cerrar</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
