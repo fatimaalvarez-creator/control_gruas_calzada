@@ -643,8 +643,38 @@ async function initApp(){
   await loadAll();        // FASE 1: datos sin fotos -> rapido
   renderAll();            // el usuario ya ve todo
   loadFotosBackground();  // FASE 2: miniaturas en segundo plano
-  // Recarga automatica cada 5 min
-  setInterval(()=>{ if(currentUser) loadAll().then(()=>{renderAll();loadFotosBackground();}); }, 300000);
+  iniciarAutoRefresh();   // refresco automatico inteligente
+}
+
+// ══════════════════════════════════════════════════════════
+//  REFRESCO AUTOMATICO INTELIGENTE
+//  - Cada 2 minutos refresca solo (silencioso, sin spinner).
+//  - Tambien refresca al volver a la app (cambias de pestana,
+//    bloqueas el celular, etc.) — asi siempre ves datos frescos.
+//  - Es ligero porque usa la carga en dos fases.
+// ══════════════════════════════════════════════════════════
+let _autoRefreshTimer=null;
+let _ultimaActualizacion=0;
+async function autoRefreshSilencioso(){
+  if(!currentUser||_isLoading)return;
+  _ultimaActualizacion=Date.now();
+  await loadAll();
+  renderAll();
+  loadFotosBackground();
+}
+function iniciarAutoRefresh(){
+  // Periodico cada 2 minutos
+  if(_autoRefreshTimer)clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer=setInterval(autoRefreshSilencioso,120000);
+  // Al regresar a la app: refresca si pasaron mas de 30s desde la ultima vez
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && currentUser && (Date.now()-_ultimaActualizacion>30000)){
+      autoRefreshSilencioso();
+    }
+  });
+  window.addEventListener('focus',()=>{
+    if(currentUser && (Date.now()-_ultimaActualizacion>30000)) autoRefreshSilencioso();
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1719,6 +1749,7 @@ function removeEditGruaExtraFoto(idx){
 // ══ ACTUALIZAR ══
 async function refreshData(){
   if(_isLoading){toast('Cargando, espera...');return;}
+  _ultimaActualizacion=Date.now();
   const icon=document.getElementById('refresh-icon');
   if(icon){icon.style.transition='transform 0.6s';icon.style.transform='rotate(360deg)';}
   showLoading(true);
