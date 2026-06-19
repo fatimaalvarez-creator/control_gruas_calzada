@@ -184,6 +184,9 @@ tbody tr:hover td{background:var(--surface-2)}
   <button class="nav-btn" onclick="showSection('resumen',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resumen
   </button>
+  <button class="nav-btn" onclick="showSection('historial',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Historial
+  </button>
   <button class="nav-btn" id="nav-admin" style="display:none" onclick="showSection('admin',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios
   </button>
@@ -441,6 +444,37 @@ tbody tr:hover td{background:var(--surface-2)}
 </div>
 
 <!-- ADMIN USUARIOS -->
+<!-- HISTORIAL DE MOVIMIENTOS -->
+<div class="section" id="sec-historial">
+  <div class="section-header">
+    <div><h2>Historial de movimientos</h2><p>Registro de quien creo, edito o elimino informacion</p></div>
+    <button class="btn btn-ghost" onclick="renderHistorial()">Actualizar</button>
+  </div>
+  <div class="stats-grid" id="hist-stats"></div>
+  <div class="card">
+    <div class="card-title">&#x1F4DC; Movimientos recientes</div>
+    <div id="hist-admin-banner" style="display:none;background:var(--amber-bg);border:1px solid #fcd9a5;border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;font-weight:500">
+      &#x1F512; Solo Fatima puede borrar movimientos del historial
+    </div>
+    <div class="filters">
+      <select id="hist-filter-accion" onchange="renderHistorial()">
+        <option value="">Todas las acciones</option>
+        <option value="crear">Crear</option>
+        <option value="editar">Editar</option>
+        <option value="eliminar">Eliminar</option>
+      </select>
+      <select id="hist-filter-modulo" onchange="renderHistorial()"><option value="">Todos los modulos</option></select>
+      <select id="hist-filter-usuario" onchange="renderHistorial()"><option value="">Todos los usuarios</option></select>
+    </div>
+    <div id="hist-content"><p class="empty">Cargando...</p></div>
+  </div>
+  <div class="card" id="hist-limpiar-card" style="display:none;border:2px solid var(--red)">
+    <div class="card-title" style="color:var(--red)">&#x1F5D1; Borrar todo el historial</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem">Esta accion elimina TODO el historial de movimientos y no se puede deshacer. Solo Fatima puede hacerlo.</p>
+    <button class="btn btn-danger" style="border:1px solid var(--red);padding:9px 18px" onclick="limpiarHistorial()">Borrar todo el historial</button>
+  </div>
+</div>
+
 <div class="section" id="sec-admin">
   <div class="section-header"><div><h2>Administrar Usuarios</h2><p>Solo visible para administradores</p></div></div>
   <div class="card">
@@ -811,6 +845,7 @@ function showSection(s,btn){
   document.getElementById('sec-'+s).classList.add('active');if(btn)btn.classList.add('active');
   if(s==='resumen')renderResumen();
   if(s==='admin')renderUsuarios();
+  if(s==='historial')renderHistorial();
   if(s==='gasolina')setTimeout(()=>initFluidos(),50);
 }
 function showSub(section,sub,btn){
@@ -990,11 +1025,12 @@ async function addGrua(){
   if(extFotos.length)await sb.from('papeleria').upsert({grua:id,tipo:'fotos_grua',fotos:extFotos,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
   document.getElementById('g-fotos-extra-preview').innerHTML='';gruaFotosExtraTemp=[];
   await loadAll();renderGruas();
+  logMov('crear','Grua','Registro grua '+id+(row.chofer?' ('+row.chofer+')':''));
   toast('Grua guardada correctamente');
 }
 async function deleteGrua(id){
   if(!isAdmin)return;if(!confirm('Eliminar grua '+id+'? Se borraran todas sus recargas y servicios.'))return;
-  await sb.from('gruas').delete().eq('id',id);await loadAll();renderAll();loadFotosBackground();toast('Grua eliminada');
+  await sb.from('gruas').delete().eq('id',id);logMov('eliminar','Grua','Elimino grua '+id);await loadAll();renderAll();loadFotosBackground();toast('Grua eliminada');
 }
 function renderGruas(){
   document.getElementById('gruas-stats').innerHTML=`<div class="stat accent"><div class="stat-label">Total gruas</div><div class="stat-value">${gruas.length}</div></div><div class="stat green"><div class="stat-label">Con rendimiento</div><div class="stat-value">${gruas.filter(g=>calcRendimientoGrua(g.id)||g.rend).length}</div></div><div class="stat"><div class="stat-label">Sin datos aun</div><div class="stat-value">${gruas.filter(g=>!calcRendimientoGrua(g.id)&&!g.rend).length}</div></div>`;
@@ -1041,6 +1077,7 @@ async function savePapelTemp(){
   }
   papelTemp={poliza:[],tarjeta:[],verificacion:[],factura:[]};
   ['prev-poliza','prev-tarjeta','prev-verificacion','prev-factura'].forEach(id=>document.getElementById(id).innerHTML='');
+  logMov('crear','Papeleria','Guardo documentos de grua '+gruaId);
   toast('Documentos guardados correctamente');
   loadPapeleria(gruaId).then(()=>renderPapeleria());
 }
@@ -1078,13 +1115,13 @@ async function uploadPapelDirect(gruaId,tipo,input){
   for(const file of input.files){const stored=await uploadToStorage(file);if(stored)existing.push(stored);else toast('Error al subir: '+file.name,true);}
   const{error}=await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
   if(error){toast('Error al guardar: '+error.message,true);return;}
-  input.value='';toast('Archivo guardado correctamente');
+  input.value='';logMov('crear','Papeleria','Agrego archivo a grua '+gruaId+' ('+tipo+')');toast('Archivo guardado correctamente');
   loadPapeleria(gruaId).then(()=>renderPapeleria());
 }
 async function deletePapelFoto(gruaId,tipo,idx){
   if(!isAdmin)return;papeleria[gruaId][tipo].splice(idx,1);
   await sb.from('papeleria').upsert({grua:gruaId,tipo,fotos:papeleria[gruaId][tipo],updated_at:new Date().toISOString()},{onConflict:'grua,tipo'});
-  renderPapeleria();toast('Foto eliminada');
+  renderPapeleria();logMov('eliminar','Papeleria','Elimino un archivo de grua '+gruaId+' ('+tipo+')');toast('Foto eliminada');
 }
 
 // ══ GASOLINA ══
@@ -1105,12 +1142,15 @@ async function addRecarga(){
   document.getElementById('gas-km-auto').textContent='';document.getElementById('gas-rend-preview').style.display='none';document.getElementById('gas-pxl-auto').textContent='';
   document.getElementById('gas-fotos-preview').innerHTML='';gasFotosTemp=[];
   if(document.getElementById('fluidos-toggles'))initFluidos();
+  logMov('crear','Gasolina','Recarga grua '+grua+': '+litros+' L'+(parseFloat(document.getElementById('gas-costo').value)?' ($'+(parseFloat(document.getElementById('gas-costo').value))+')':''));
   toast('Recarga guardada'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
   loadAll().then(()=>{renderGas();loadFotosBackground();if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();});
 }
 async function deleteRecarga(id){
   if(!isAdmin)return;if(!confirm('Eliminar esta recarga?'))return;
+  const _r=recargas.find(r=>r.id===id);
   await sb.from('recargas').delete().eq('id',id);
+  logMov('eliminar','Gasolina','Elimino recarga'+(_r?' de grua '+_r.grua+' ('+_r.litros+' L)':''));
   recargas=recargas.filter(r=>r.id!==id);_rendCache={};
   renderGas();if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga eliminada');
@@ -1159,12 +1199,15 @@ async function addMant(){
   document.getElementById('mant-fecha').value=todayStr();
   document.getElementById('mant-fotos-preview').innerHTML='';mantFotosTemp=[];
   document.getElementById('mant-km-warn').style.display='none';document.getElementById('mant-km').style.borderColor='';
+  logMov('crear','Mantenimiento','Servicio "'+document.getElementById('mant-tipo').value+'" en grua '+grua);
   toast('Servicio guardado'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
   loadAll().then(()=>{renderMant();loadFotosBackground();if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();});
 }
 async function deleteMant(id){
   if(!isAdmin)return;if(!confirm('Eliminar este servicio?'))return;
+  const _m=mantenimientos.find(m=>m.id===id);
   await sb.from('mantenimientos').delete().eq('id',id);
+  logMov('eliminar','Mantenimiento','Elimino servicio'+(_m?' "'+_m.tipo+'" de grua '+_m.grua:''));
   mantenimientos=mantenimientos.filter(m=>m.id!==id);
   renderMant();if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio eliminado');
@@ -1220,11 +1263,12 @@ async function addUsuario(){
   const{error}=await sb.from('usuarios').insert([{nombre,username,password,rol}]);
   if(error)return toast('Error: '+error.message,true);
   ['adm-nombre','adm-user','adm-pass'].forEach(i=>document.getElementById(i).value='');
+  logMov('crear','Usuario','Creo usuario '+username+' ('+rol+')');
   toast('Usuario creado correctamente');renderUsuarios();
 }
 async function deleteUsuario(id){
   if(currentUser.username!=='Fatima')return;if(!confirm('Eliminar este usuario?'))return;
-  await sb.from('usuarios').delete().eq('id',id);toast('Usuario eliminado');renderUsuarios();
+  await sb.from('usuarios').delete().eq('id',id);logMov('eliminar','Usuario','Elimino un usuario');toast('Usuario eliminado');renderUsuarios();
 }
 async function renderUsuarios(){
   const{data}=await sb.from('usuarios').select('*').order('created_at');
@@ -1324,6 +1368,7 @@ async function saveEditGrua(){
   }
   editGruaFotosExtraTemp=[];editGruaExistingExtraFotos=undefined;
   document.getElementById('modal-edit-grua').classList.remove('open');
+  logMov('editar','Grua','Edito grua '+newId);
   toast('Grua actualizada correctamente');
   loadAll().then(()=>renderAll());
 }
@@ -1387,7 +1432,7 @@ async function saveEditMant(){
   if(idx2!==-1)mantenimientos[idx2]={...mantenimientos[idx2],...updates};
   editMantFotosTemp=[];
   document.getElementById('modal-edit-mant').classList.remove('open');
-  renderAll();toast('Servicio actualizado correctamente');
+  renderAll();logMov('editar','Mantenimiento','Edito servicio "'+updates.tipo+'" de grua '+grua);toast('Servicio actualizado correctamente');
   loadAll().then(()=>{renderAll();if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();});
 }
 
@@ -1460,7 +1505,7 @@ async function saveEditRecarga(){
   if(idx2!==-1)recargas[idx2]={...recargas[idx2],...updates};
   editRecFotosTemp=[];
   document.getElementById('modal-edit-recarga').classList.remove('open');
-  _rendCache={};renderAll();toast('Recarga actualizada correctamente');
+  _rendCache={};renderAll();logMov('editar','Gasolina','Edito recarga de grua '+grua);toast('Recarga actualizada correctamente');
   loadAll().then(()=>{renderAll();if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();});
 }
 function _rebuildExistingList(items,onRemove,containerId){
@@ -1610,6 +1655,7 @@ async function saveOpTemp(){
   }
   OP_TIPOS.forEach(t=>opTemp[t.key]=[]);
   document.querySelectorAll('[id^="op-prev-"]').forEach(el=>el.innerHTML='');
+  logMov('crear','Doc. operador','Guardo documentos de '+nombre);
   toast('Documentos del operador guardados');renderOpDocs();
 }
 async function renderOpDocs(){
@@ -1637,14 +1683,14 @@ async function uploadOpDirect(nombre,tipo,input){
     if(stored)existing.push(stored);else toast('Error al subir: '+file.name,true);
   }
   await sb.from('papeleria_operadores').upsert({operador:nombre,tipo,fotos:existing,updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
-  input.value='';renderOpDocs();toast('Archivo guardado');
+  input.value='';renderOpDocs();logMov('crear','Doc. operador','Agrego archivo a '+nombre+' ('+tipo+')');toast('Archivo guardado');
 }
 async function deleteOpFoto(nombre,tipo,idx){
   if(!isAdmin)return;
   const{data:ex}=await sb.from('papeleria_operadores').select('fotos').eq('operador',nombre).eq('tipo',tipo).single();
   const fotos=ex?.fotos||[];fotos.splice(idx,1);
   await sb.from('papeleria_operadores').upsert({operador:nombre,tipo,fotos,updated_at:new Date().toISOString()},{onConflict:'operador,tipo'});
-  renderOpDocs();toast('Archivo eliminado');
+  renderOpDocs();logMov('eliminar','Doc. operador','Elimino un archivo de '+nombre+' ('+tipo+')');toast('Archivo eliminado');
 }
 function updateOpSelects(){
   const choferes=[...new Set(gruas.map(g=>g.chofer).filter(Boolean))].sort();
@@ -1680,6 +1726,7 @@ async function saveHerramientas(){
   document.getElementById('herr-fotos-preview').innerHTML='';herrFotosTemp=[];
   document.getElementById('herr-fecha').value=todayStr();
   await renderHerramientas();
+  logMov('crear','Herramientas','Entrega de herramientas a grua '+grua);
   toast('Herramientas guardadas'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
 }
 async function renderHerramientas(){
@@ -1697,6 +1744,7 @@ async function renderHerramientas(){
 async function deleteHerramienta(id){
   if(!isAdmin)return;if(!confirm('Eliminar este registro?'))return;
   await sb.from('herramientas').delete().eq('id',id);
+  logMov('eliminar','Herramientas','Elimino un registro de herramientas');
   renderHerramientas();toast('Registro eliminado');
 }
 
@@ -1713,6 +1761,7 @@ async function saveEquipo(){
   document.getElementById('equipo-fotos-preview').innerHTML='';equipoFotosTemp=[];
   document.getElementById('equipo-fecha').value=todayStr();
   await renderEquipo();
+  logMov('crear','Equipo','Entrega de equipo a '+operador);
   toast('Equipo guardado'+(fotos.length?' con '+fotos.length+' archivo(s)':''));
 }
 async function renderEquipo(){
@@ -1730,6 +1779,7 @@ async function renderEquipo(){
 async function deleteEquipo(id){
   if(!isAdmin)return;if(!confirm('Eliminar este registro?'))return;
   await sb.from('equipo_operadores').delete().eq('id',id);
+  logMov('eliminar','Equipo','Elimino un registro de equipo');
   renderEquipo();toast('Registro eliminado');
 }
 
@@ -1817,6 +1867,94 @@ function showProxServiciosModal(){
       </tr>`;
     }).join('')+'</tbody></table></div>';
   document.getElementById('modal-prox').classList.add('open');
+}
+
+// ══════════════════════════════════════════════════════════
+//  HISTORIAL DE MOVIMIENTOS
+//  Registra crear/editar/eliminar. Solo Fatima puede borrar.
+//  Requiere la tabla 'historial' en Supabase (ver SQL aparte).
+// ══════════════════════════════════════════════════════════
+let historial=[];
+async function logMov(accion,modulo,descripcion){
+  if(!currentUser)return;
+  try{
+    await sb.from('historial').insert([{usuario:currentUser.nombre,accion,modulo,descripcion}]);
+  }catch(e){ console.error('logMov error:',e); }
+}
+async function loadHistorial(){
+  try{
+    const{data,error}=await sb.from('historial').select('*').order('created_at',{ascending:false}).limit(500);
+    if(error){console.error('historial error:',error);historial=[];return;}
+    historial=data||[];
+  }catch(e){console.error('loadHistorial:',e);historial=[];}
+}
+function fmtFechaHora(s){
+  if(!s)return'—';
+  const d=new Date(s);
+  if(isNaN(d))return s;
+  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+async function renderHistorial(){
+  const el=document.getElementById('hist-content');
+  el.innerHTML='<p class="empty">Cargando...</p>';
+  const esFatima=currentUser&&currentUser.username==='Fatima';
+  document.getElementById('hist-admin-banner').style.display=esFatima?'none':'block';
+  document.getElementById('hist-limpiar-card').style.display=esFatima?'block':'none';
+  await loadHistorial();
+  // Stats
+  const hoy=todayStr();
+  const hoyCount=historial.filter(h=>(h.created_at||'').startsWith(hoy)).length;
+  document.getElementById('hist-stats').innerHTML=`
+    <div class="stat accent"><div class="stat-label">Movimientos hoy</div><div class="stat-value">${hoyCount}</div></div>
+    <div class="stat green"><div class="stat-label">Creados</div><div class="stat-value">${historial.filter(h=>h.accion==='crear').length}</div></div>
+    <div class="stat amber" style="border-left:3px solid var(--amber)"><div class="stat-label">Editados</div><div class="stat-value">${historial.filter(h=>h.accion==='editar').length}</div></div>
+    <div class="stat red"><div class="stat-label">Eliminados</div><div class="stat-value">${historial.filter(h=>h.accion==='eliminar').length}</div></div>`;
+  // Llenar filtros
+  const modulos=[...new Set(historial.map(h=>h.modulo).filter(Boolean))].sort();
+  const fm=document.getElementById('hist-filter-modulo');const fmv=fm.value;
+  fm.innerHTML='<option value="">Todos los modulos</option>'+modulos.map(m=>`<option value="${m}">${m}</option>`).join('');fm.value=fmv;
+  const usuarios=[...new Set(historial.map(h=>h.usuario).filter(Boolean))].sort();
+  const fu=document.getElementById('hist-filter-usuario');const fuv=fu.value;
+  fu.innerHTML='<option value="">Todos los usuarios</option>'+usuarios.map(u=>`<option value="${u}">${u}</option>`).join('');fu.value=fuv;
+  // Filtrar
+  const fa=document.getElementById('hist-filter-accion').value;
+  let list=[...historial];
+  if(fa)list=list.filter(h=>h.accion===fa);
+  if(fmv)list=list.filter(h=>h.modulo===fmv);
+  if(fuv)list=list.filter(h=>h.usuario===fuv);
+  if(!list.length){el.innerHTML='<p class="empty">Sin movimientos registrados.</p>';return;}
+  const badgeAccion=a=>{
+    if(a==='crear')return'<span class="badge badge-green">&#x2795; Crear</span>';
+    if(a==='editar')return'<span class="badge badge-amber">&#x270F; Editar</span>';
+    if(a==='eliminar')return'<span class="badge badge-red">&#x1F5D1; Eliminar</span>';
+    return`<span class="badge badge-gray">${a||'—'}</span>`;
+  };
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Accion</th><th>Modulo</th><th>Detalle</th>'+(esFatima?'<th></th>':'')+'</tr></thead><tbody>'+
+    list.map(h=>`<tr>
+      <td class="mono" style="font-size:12px;color:var(--text-3)">${fmtFechaHora(h.created_at)}</td>
+      <td style="font-weight:600">${h.usuario||'—'}</td>
+      <td>${badgeAccion(h.accion)}</td>
+      <td><span class="badge badge-navy">${h.modulo||'—'}</span></td>
+      <td style="max-width:320px">${h.descripcion||'—'}</td>
+      ${esFatima?`<td><button class="btn btn-danger" onclick="deleteHistorial('${h.id}')">&#x1F5D1;</button></td>`:''}
+    </tr>`).join('')+'</tbody></table></div>';
+}
+async function deleteHistorial(id){
+  if(!currentUser||currentUser.username!=='Fatima')return toast('Solo Fatima puede borrar el historial',true);
+  if(!confirm('Eliminar este movimiento del historial?'))return;
+  await sb.from('historial').delete().eq('id',id);
+  historial=historial.filter(h=>String(h.id)!==String(id));
+  renderHistorial();
+  toast('Movimiento eliminado');
+}
+async function limpiarHistorial(){
+  if(!currentUser||currentUser.username!=='Fatima')return toast('Solo Fatima puede borrar el historial',true);
+  if(!confirm('¿Borrar TODO el historial de movimientos? Esta accion no se puede deshacer.'))return;
+  if(!confirm('Confirma de nuevo: se eliminaran TODOS los movimientos permanentemente.'))return;
+  await sb.from('historial').delete().neq('id',0);
+  historial=[];
+  renderHistorial();
+  toast('Historial borrado por completo');
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
