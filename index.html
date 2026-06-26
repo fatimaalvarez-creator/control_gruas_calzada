@@ -64,6 +64,12 @@ input[type="file"]{padding:6px 10px;font-size:13px;cursor:pointer}
 .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);width:100%;justify-content:center;padding:11px}
 .btn-primary:hover{background:var(--navy-light)}
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+#floating-hscroll{position:fixed;bottom:0;z-index:95;overflow-x:scroll;overflow-y:hidden;height:18px;background:rgba(255,255,255,0.97);border-top:1px solid var(--border-strong);display:none;box-shadow:0 -3px 10px rgba(0,0,0,0.10)}
+#floating-hscroll::-webkit-scrollbar{height:16px}
+#floating-hscroll::-webkit-scrollbar-track{background:transparent}
+#floating-hscroll::-webkit-scrollbar-thumb{background:var(--navy-light);border-radius:99px;border:4px solid transparent;background-clip:content-box}
+#floating-hscroll::-webkit-scrollbar-thumb:hover{background:var(--navy)}
+#floating-hscroll-inner{height:1px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 thead{background:var(--surface-2)}
 th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -453,9 +459,6 @@ tbody tr:hover td{background:var(--surface-2)}
   <div class="stats-grid" id="hist-stats"></div>
   <div class="card">
     <div class="card-title">&#x1F4DC; Movimientos recientes</div>
-    <div id="hist-admin-banner" style="display:none;background:var(--amber-bg);border:1px solid #fcd9a5;border-radius:var(--radius);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;font-weight:500">
-      &#x1F512; Solo Fatima puede borrar movimientos del historial
-    </div>
     <div class="filters">
       <select id="hist-filter-accion" onchange="renderHistorial()">
         <option value="">Todas las acciones</option>
@@ -693,6 +696,7 @@ async function initApp(){
   renderAll();            // el usuario ya ve todo
   loadFotosBackground();  // FASE 2: miniaturas en segundo plano
   iniciarAutoRefresh();   // refresco automatico inteligente
+  initFloatingScroll();   // barra de desplazamiento flotante
 }
 
 // ══════════════════════════════════════════════════════════
@@ -847,6 +851,7 @@ function showSection(s,btn){
   if(s==='admin')renderUsuarios();
   if(s==='historial')renderHistorial();
   if(s==='gasolina')setTimeout(()=>initFluidos(),50);
+  if(window.updateFloatingScroll)setTimeout(window.updateFloatingScroll,80);
 }
 function showSub(section,sub,btn){
   document.querySelectorAll('#sec-'+section+' .subsection').forEach(el=>el.classList.remove('active'));
@@ -1530,6 +1535,7 @@ function showGasSub(sub,btn){
   if(btn)btn.classList.add('active');
   if(sub==='diario')renderGasDiario();
   if(sub==='completo')renderGas();
+  if(window.updateFloatingScroll)setTimeout(window.updateFloatingScroll,80);
 }
 function showMantSub(sub,btn){
   ['registro','diario','completo'].forEach(s=>{document.getElementById('mant-sub-'+s).style.display=s===sub?'block':'none';});
@@ -1537,6 +1543,7 @@ function showMantSub(sub,btn){
   if(btn)btn.classList.add('active');
   if(sub==='diario')renderMantDiario();
   if(sub==='completo')renderMant();
+  if(window.updateFloatingScroll)setTimeout(window.updateFloatingScroll,80);
 }
 function renderGasDiario(){
   const hoy=todayStr();const el=document.getElementById('gas-diario-content');
@@ -1898,7 +1905,6 @@ async function renderHistorial(){
   const el=document.getElementById('hist-content');
   el.innerHTML='<p class="empty">Cargando...</p>';
   const esFatima=currentUser&&currentUser.username==='Fatima';
-  document.getElementById('hist-admin-banner').style.display=esFatima?'none':'block';
   document.getElementById('hist-limpiar-card').style.display=esFatima?'block':'none';
   await loadHistorial();
   // Stats
@@ -1955,6 +1961,57 @@ async function limpiarHistorial(){
   historial=[];
   renderHistorial();
   toast('Historial borrado por completo');
+}
+
+// ══════════════════════════════════════════════════════════
+//  BARRA DE DESPLAZAMIENTO HORIZONTAL FLOTANTE
+//  Pega una barra fija abajo de la pantalla para deslizar las
+//  tablas anchas de lado a lado sin tener que bajar hasta el
+//  final de la tabla. Asi llegas a los botones de editar.
+// ══════════════════════════════════════════════════════════
+function initFloatingScroll(){
+  if(document.getElementById('floating-hscroll'))return;
+  const bar=document.createElement('div');
+  bar.id='floating-hscroll';
+  const inner=document.createElement('div');
+  inner.id='floating-hscroll-inner';
+  bar.appendChild(inner);
+  document.body.appendChild(bar);
+  let active=null,raf=null;
+  function elegirTabla(){
+    let best=null,bestVis=0;
+    document.querySelectorAll('.table-wrap').forEach(w=>{
+      if(w.scrollWidth<=w.clientWidth+2)return;           // no se desborda
+      const r=w.getBoundingClientRect();
+      if(r.width<=0||r.height<=0)return;
+      const vis=Math.min(r.bottom,window.innerHeight)-Math.max(r.top,0);
+      if(vis>20&&vis>bestVis){bestVis=vis;best=w;}
+    });
+    return best;
+  }
+  window.updateFloatingScroll=function(){
+    const w=elegirTabla();
+    active=w;
+    if(!w){bar.style.display='none';return;}
+    const r=w.getBoundingClientRect();
+    // Si el fondo de la tabla (su propia barra) ya se ve en pantalla, no hace falta la flotante
+    if(r.bottom<=window.innerHeight+1){bar.style.display='none';return;}
+    bar.style.display='block';
+    bar.style.left=r.left+'px';
+    bar.style.width=r.width+'px';
+    inner.style.width=w.scrollWidth+'px';
+    if(Math.abs(bar.scrollLeft-w.scrollLeft)>1)bar.scrollLeft=w.scrollLeft;
+  };
+  function throttled(){if(raf)return;raf=requestAnimationFrame(()=>{raf=null;updateFloatingScroll();});}
+  // Arrastrar la barra flotante -> mueve la tabla
+  bar.addEventListener('scroll',()=>{if(active&&Math.abs(active.scrollLeft-bar.scrollLeft)>1)active.scrollLeft=bar.scrollLeft;});
+  // Mover la tabla con su barra propia -> sincroniza la flotante (captura: las tablas se redibujan)
+  document.addEventListener('scroll',e=>{if(active&&e.target===active&&Math.abs(bar.scrollLeft-active.scrollLeft)>1)bar.scrollLeft=active.scrollLeft;},true);
+  window.addEventListener('scroll',throttled,{passive:true});
+  window.addEventListener('resize',throttled);
+  // Detectar cambios de seccion / re-render de tablas
+  new MutationObserver(throttled).observe(document.body,{childList:true,subtree:true});
+  updateFloatingScroll();
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
