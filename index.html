@@ -665,13 +665,44 @@ async function doLogin(){
   if(error||!data){errEl.style.display='block';errEl.textContent='Usuario o contrasena incorrectos';return}
   errEl.style.display='none';
   currentUser=data;isAdmin=data.rol==='admin';
+  guardarSesion(data);
   initApp();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SESION PERSISTENTE
+//  Guarda la sesion en el navegador para que al refrescar la
+//  pagina NO te pida login de nuevo. Solo se cierra si le das
+//  al boton "Salir".
+// ══════════════════════════════════════════════════════════
+const SESION_KEY='calzada_sesion';
+function guardarSesion(u){
+  try{
+    // No guardamos la contrasena
+    const{password,...seguro}=u;
+    localStorage.setItem(SESION_KEY,JSON.stringify(seguro));
+  }catch(e){console.error('guardarSesion:',e);}
+}
+function borrarSesion(){
+  try{localStorage.removeItem(SESION_KEY);}catch(e){}
+}
+function restaurarSesion(){
+  try{
+    const raw=localStorage.getItem(SESION_KEY);
+    if(!raw)return false;
+    const u=JSON.parse(raw);
+    if(!u||!u.username)return false;
+    currentUser=u;isAdmin=u.rol==='admin';
+    initApp();
+    return true;
+  }catch(e){console.error('restaurarSesion:',e);return false;}
 }
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&document.getElementById('login-screen').style.display!=='none')doLogin();
 });
 
 function doLogout(){
+  borrarSesion();
   currentUser=null;isAdmin=false;
   document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').style.display='flex';
@@ -718,15 +749,15 @@ async function autoRefreshSilencioso(){
 function iniciarAutoRefresh(){
   // Periodico cada 2 minutos
   if(_autoRefreshTimer)clearInterval(_autoRefreshTimer);
-  _autoRefreshTimer=setInterval(autoRefreshSilencioso,120000);
+  _autoRefreshTimer=setInterval(autoRefreshSilencioso,60000);
   // Al regresar a la app: refresca si pasaron mas de 30s desde la ultima vez
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible' && currentUser && (Date.now()-_ultimaActualizacion>30000)){
+    if(document.visibilityState==='visible' && currentUser && (Date.now()-_ultimaActualizacion>10000)){
       autoRefreshSilencioso();
     }
   });
   window.addEventListener('focus',()=>{
-    if(currentUser && (Date.now()-_ultimaActualizacion>30000)) autoRefreshSilencioso();
+    if(currentUser && (Date.now()-_ultimaActualizacion>10000)) autoRefreshSilencioso();
   });
 }
 
@@ -2015,6 +2046,9 @@ function initFloatingScroll(){
 }
 
 function renderAll(){renderGruas();renderGas();renderMant();updateOpSelects();}
+
+// Al cargar la pagina: si ya habias iniciado sesion, entra directo
+restaurarSesion();
 </script>
 
 </body>
