@@ -620,6 +620,8 @@ let editMantExistingFotos=[],editRecExistingFotos=[],editGruaExistingExtraFotos=
 let _rendCache={};
 // Bandera: si las fotos ya se cargaron en segundo plano
 let _fotosCargadas=false;
+// Memoria de fotos ya cargadas (por id) para no volver a "cargando" en cada refresco
+let _fotosCache={recargas:{},mantenimientos:{}};
 
 // ══════════════════════════════════════════════════════════
 //  COMPRESION DE IMAGENES
@@ -788,9 +790,9 @@ async function loadAll(){
     ]);
     if(r.error)console.error('recargas error:',r.error);
     if(m.error)console.error('mant error:',m.error);
-    // Marcamos fotos como "pendiente" (undefined) para mostrar un spinner ligero
-    recargas=(r.data||[]).map(x=>({...x,fotos:undefined}));
-    mantenimientos=(m.data||[]).map(x=>({...x,fotos:undefined}));
+    // Reutilizamos las fotos ya cargadas (cache); las nuevas quedan "pendiente" (undefined)
+    recargas=(r.data||[]).map(x=>({...x,fotos:_fotosCache.recargas[x.id]}));
+    mantenimientos=(m.data||[]).map(x=>({...x,fotos:_fotosCache.mantenimientos[x.id]}));
     updateSelects();
   }catch(e){
     console.error('loadAll exception:',e);
@@ -802,19 +804,29 @@ async function loadAll(){
 
 // FASE 2: trae solo las fotos y las fusiona en los registros ya cargados
 async function loadFotosBackground(){
-  try{
-    const[r,m]=await Promise.all([
-      sb.from('recargas').select('id,fotos').limit(500),
-      sb.from('mantenimientos').select('id,fotos').limit(500),
-    ]);
-    const rMap={};(r.data||[]).forEach(x=>rMap[x.id]=x.fotos||[]);
-    const mMap={};(m.data||[]).forEach(x=>mMap[x.id]=x.fotos||[]);
-    recargas.forEach(x=>{x.fotos=rMap[x.id]||[];});
-    mantenimientos.forEach(x=>{x.fotos=mMap[x.id]||[];});
-    _fotosCargadas=true;
-    // Re-renderizamos solo lo visible para mostrar las miniaturas
-    refreshVisibleTables();
-  }catch(e){console.error('loadFotosBackground:',e);}
+  // Carga solo las fotos que faltan, en lotes, para que aparezcan poco a poco
+  await cargarFotosLotes('recargas',recargas,_fotosCache.recargas);
+  await cargarFotosLotes('mantenimientos',mantenimientos,_fotosCache.mantenimientos);
+  _fotosCargadas=true;
+  refreshVisibleTables();
+}
+
+async function cargarFotosLotes(tabla,arr,cache){
+  // ids que aun no tienen fotos cargadas
+  const faltan=arr.filter(x=>x.fotos===undefined).map(x=>x.id);
+  if(!faltan.length)return;
+  const size=60; // lotes chicos para no traer un paquete enorme de golpe
+  for(let i=0;i<faltan.length;i+=size){
+    const chunk=faltan.slice(i,i+size);
+    try{
+      const{data,error}=await sb.from(tabla).select('id,fotos').in('id',chunk);
+      if(error){console.error(tabla+' fotos error:',error);continue;}
+      (data||[]).forEach(x=>{cache[x.id]=x.fotos||[];});
+      // Aplicar a los objetos actuales
+      arr.forEach(x=>{if(cache[x.id]!==undefined)x.fotos=cache[x.id];});
+      refreshVisibleTables(); // mostrar avance
+    }catch(e){console.error('cargarFotosLotes:',e);}
+  }
 }
 
 // Re-renderiza solo las tablas que esten visibles (evita trabajo de mas)
@@ -1189,7 +1201,7 @@ async function deleteRecarga(id){
   const _r=recargas.find(r=>r.id===id);
   await sb.from('recargas').delete().eq('id',id);
   logMov('eliminar','Gasolina','Elimino recarga'+(_r?' de grua '+_r.grua+' ('+_r.litros+' L)':''));
-  recargas=recargas.filter(r=>r.id!==id);_rendCache={};
+  recargas=recargas.filter(r=>r.id!==id);_rendCache={};delete _fotosCache.recargas[id];
   renderGas();if(document.getElementById('gas-sub-diario').style.display!=='none')renderGasDiario();
   toast('Recarga eliminada');
 }
@@ -1246,7 +1258,7 @@ async function deleteMant(id){
   const _m=mantenimientos.find(m=>m.id===id);
   await sb.from('mantenimientos').delete().eq('id',id);
   logMov('eliminar','Mantenimiento','Elimino servicio'+(_m?' "'+_m.tipo+'" de grua '+_m.grua:''));
-  mantenimientos=mantenimientos.filter(m=>m.id!==id);
+  mantenimientos=mantenimientos.filter(m=>m.id!==id);delete _fotosCache.mantenimientos[id];
   renderMant();if(document.getElementById('mant-sub-diario').style.display!=='none')renderMantDiario();
   toast('Servicio eliminado');
 }
@@ -1468,6 +1480,7 @@ async function saveEditMant(){
   if(error)return toast('Error: '+error.message,true);
   const idx2=mantenimientos.findIndex(m=>m.id===id);
   if(idx2!==-1)mantenimientos[idx2]={...mantenimientos[idx2],...updates};
+  _fotosCache.mantenimientos[id]=updates.fotos;
   editMantFotosTemp=[];
   document.getElementById('modal-edit-mant').classList.remove('open');
   renderAll();logMov('editar','Mantenimiento','Edito servicio "'+updates.tipo+'" de grua '+grua);toast('Servicio actualizado correctamente');
@@ -1542,6 +1555,7 @@ async function saveEditRecarga(){
   if(error)return toast('Error: '+error.message,true);
   const idx2=recargas.findIndex(r=>r.id===id);
   if(idx2!==-1)recargas[idx2]={...recargas[idx2],...updates};
+  _fotosCache.recargas[id]=updates.fotos;
   editRecFotosTemp=[];
   document.getElementById('modal-edit-recarga').classList.remove('open');
   _rendCache={};renderAll();logMov('editar','Gasolina','Edito recarga de grua '+grua);toast('Recarga actualizada correctamente');
